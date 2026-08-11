@@ -1,0 +1,99 @@
+# ---------- Segredos ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+service-account*.json
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+venv/
+.venv/
+env/
+ENV/
+.python-version
+
+# Testes e cobertura
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+
+# Notebooks
+.ipynb_checkpoints/
+
+# ---------- ML ----------
+# Modelos treinados e datasets ficam fora do git (usar release ou storage)
+/ia/models/*.pkl
+/ia/models/*.joblib
+/ia/models/*.h5
+/ia/models/*.onnx
+/ia/data/
+*.parquet
+mlruns/
+
+# ---------- Node / Frontend ----------
+node_modules/
+.pnp
+.pnp.js
+dist/
+dist-ssr/
+build/
+.vite/
+*.local
+.eslintcache
+
+# Vercel
+.vercel
+
+# ---------- Banco ----------
+*.sqlite3
+*.db
+pgdata/
+docker-volumes/
+
+# ---------- Logs ----------
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------- Editores / SO ----------
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- Claude Code ----------
+# Skills, CLAUDE.md e tasks SÃO versionados (conhecimento do time).
+# Só o estado local da sessão fica de fora.
+.claude/settings.local.json
+.claude/sessions/
+
+# ---------- Artefatos gerados ----------
+/backend/generated/
+/docs/*.pdf
+!/docs/orcamento-exemplo.pdf
+scratch/
+tmp/
