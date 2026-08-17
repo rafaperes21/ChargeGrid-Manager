@@ -108,15 +108,15 @@ cd backend && alembic revision --autogenerate -m "descricao" && alembic upgrade 
 
 ---
 
-## Divisão sugerida do time
+## Divisão do time
+
+Time de 2 pessoas. Plano detalhado, com fases e pontos de sincronização, em
+[`tasks/plano-2-pessoas.md`](tasks/plano-2-pessoas.md).
 
 | Pessoa | Frente |
 |---|---|
-| 1 | Backend core: modelos, auth, sessões, tarifação |
-| 2 | Portal do Proprietário |
-| 3 | Portal do Cliente |
-| 4 | IA/ML + simulador de hardware |
-| 5 | Chatbots + integração SEMS+ + deploy |
+| 1 | Backend: modelos, auth, sessões, tarifação, simulador/polling, IA/ML, chatbots (lógica) |
+| 2 | Frontend: Portal do Proprietário, Portal do Cliente, onboarding, chatbots (UI) |
 
 O contrato entre as frentes é o **schema OpenAPI** do FastAPI (`/docs`). Quem mexe em endpoint
 avisa; quem consome gera os tipos a partir dele.

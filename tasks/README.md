@@ -3,6 +3,10 @@
 Cada arquivo em `milestones/` define **escopo, entregáveis, critérios de aceite e dependências**.
 Um milestone só começa quando as dependências dele estão marcadas como concluídas.
 
+> Time de 2 pessoas: a coluna "Frente" abaixo reflete a sugestão original de 5 frentes do
+> enunciado. Para quem faz o quê e em que fase, com pontos de sincronização, use
+> [`plano-2-pessoas.md`](plano-2-pessoas.md) — ele reatribui os mesmos milestones a Backend/Frontend.
+
 ## Visão geral
 
 | # | Milestone | Depende de | Frente |
