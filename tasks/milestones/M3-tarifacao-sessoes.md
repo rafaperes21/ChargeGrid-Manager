@@ -35,6 +35,41 @@ prejuízo real ou cliente cobrado a mais. **É o milestone que mais precisa de t
 - [ ] Reserva de 15 min ao liberar vaga; expirou → volta ao fim do próprio tier
 - [ ] Reserva antecipada de 15 min retira a vaga da oferta da fila
 
+## Plano de execução
+
+Owner: Pessoa 1 (backend). Depende de M1 (schema, snapshot de tarifa) e M2 (`charger_readings`
+fluindo). É o milestone com mais teste unitário exigido — não adiar os testes para o final.
+
+1. **CRUD de `tariff_rules`** — `app/api/tariffs.py` + `app/services/tariff_rules.py`:
+   faixas `peak`/`off_peak`/`overnight` por dia da semana, definidas em horário local
+   (`America/Sao_Paulo`), persistidas em UTC. Validação de não-sobreposição e cobertura de
+   24h no próprio CRUD; faixas cruzando meia-noite tratadas como dois intervalos ou lógica
+   circular — é onde o bug aparece (skill `tarifacao-e-sessoes` §2).
+2. **Motor de cálculo puro** — `app/services/pricing.py`, testável sem HTTP: ordem fixa
+   bruto → minutos grátis (promoção) → desconto do plano (%) → franquia em kWh → valor final
+   (skill §3). O desconto do plano incide sobre o valor já promocional, nunca sobre o bruto —
+   não inverter a ordem.
+3. **Máquina de estados de sessão** — `app/services/sessions.py`:
+   `pending → active → finished | error`. `pending` com timeout de 5 min sem potência → `error`
+   sem cobrança. `active` acumula `energy_kwh` a partir das leituras de M2 via trapézio
+   (reaproveitar `energy_integration.py`). Fim detectado por potência zerada em N leituras
+   consecutivas.
+4. **Fechamento e snapshot** — ao fechar, gravar `tariff_rate_applied`, `plan_discount_pct`,
+   `free_minutes_applied`, `tariff_rule_id` em `charging_sessions` (campos já existentes desde
+   M1) e gerar recibo digital. Nunca recalcular extrato antigo lendo a tabela de tarifas atual.
+5. **Planos e franquia** — `app/services/plans.py`: `avulso`/`mensal` (15%, franquia)
+   /`trimestral` (25%, franquia maior), franquia abatida em kWh antes de virar dinheiro,
+   sem acumular entre ciclos.
+6. **Fila inteligente** — `app/services/queue.py`: ordenação `prioridade_do_plano DESC`,
+   `entrou_na_fila_em ASC`, sem outro critério de desempate. Vaga liberou → notifica o primeiro
+   e reserva 15 min; não respondeu → fim da fila do próprio tier. Reserva antecipada retira a
+   vaga da oferta da fila.
+7. **Testes unitários** — cobrir explicitamente os casos do critério de aceite abaixo antes de
+   considerar o milestone fechado (virada de faixa, meia-noite, ordem promoção/desconto,
+   franquia, fila entre planos, sessão `error` sem cobrança).
+8. **Ponta a ponta com o simulador** — abrir sessão por RFID simulado, acumular via M2, fechar,
+   conferir o valor contra o cálculo manual.
+
 ## Critérios de aceite
 
 - Suite de testes unitários cobrindo, no mínimo:

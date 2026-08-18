@@ -1,11 +1,12 @@
-# ChargeGrid Manager
+# ChargeGrid-Manager
 
 Plataforma de gestão de carregamento de veículos elétricos construída sobre o carregador
 **GoodWe HCA G2**. Dois portais web (proprietário do estabelecimento e cliente final),
 um backend único, e um módulo de IA/ML.
 
-> **Nome do produto:** `ChargeGrid Manager` é o placeholder. Se o grupo decidir outro nome,
-> trocar aqui, no `README.md` e nos `package.json` — nada mais depende do nome.
+> **Nome do produto:** `ChargeGrid-Manager` (kebab-case) é o nome decidido pelo grupo.
+> Usar exatamente essa grafia em `package.json`, slugs de deploy (Vercel/Railway) e domínio.
+> Se precisar trocar de novo, atualizar aqui, no `README.md` e nos `package.json`.
 
 ---
 
@@ -16,7 +17,7 @@ Isso define toda a arquitetura de integração:
 
 - Um **serviço de polling** em Python consulta o SEMS+ a cada 1–5 min e persiste
   potência/status de cada carregador.
-- O **controle de sessão** (início/fim, cobrança) é do ChargeGrid Manager, não do hardware.
+- O **controle de sessão** (início/fim, cobrança) é do ChargeGrid-Manager, não do hardware.
   O gatilho é o cartão RFID: aproximou → abre sessão; desconectou → fecha e calcula valor.
 - O HCA G2 apenas **autoriza** o carregamento via RFID físico cadastrado no SEMS+.
   Nós controlamos o lado financeiro e de dados.

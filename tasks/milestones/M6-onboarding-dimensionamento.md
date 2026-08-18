@@ -29,6 +29,36 @@ ele entra sem saber o que comprar e sai com um orçamento para levar à GoodWe.
       profissional habilitado (NBR 5410 / NBR 17019)
 - [ ] Ao concluir, criar o estabelecimento e os carregadores já configurados
 
+## Plano de execução
+
+Owner: cálculo e PDF na Pessoa 1 (backend), wizard/tela de resultado na Pessoa 2 — decisão do
+`plano-2-pessoas.md` de manter a regra de dimensionamento em Python/`Decimal`, testável, com o
+frontend só acionando o download. Depende de M4 (o wizard vive dentro do portal do
+proprietário).
+
+1. **`services/charger_catalog.py`** — constantes dos modelos GW7K/GW11K/GW22K num só lugar
+   (potência, fase, corrente). Marcar os valores `TODO(datasheet)` da skill
+   `dimensionamento-hca-g2` §2 — não hardcode número não confirmado em regra de negócio.
+2. **`services/sizing.py`** — fórmulas mono (`P = V×I×FP/1000`) e trifásica
+   (`P = √3×V×I×FP/1000`, FP=1,0), seleção de modelo (§3 da skill: GW22K só se
+   `available_power_kw >= 2×P_GW22K`, senão GW11K; empate → GW11K com justificativa),
+   `max_chargers` com margem de segurança 80% e fator de simultaneidade por tipo de
+   estabelecimento (§4). Caso `max_chargers == 0` → devolver a carga mínima necessária, não
+   erro seco.
+3. **Fluxo guiado do onboarding** (Pessoa 2, dentro de M4) — etapas tipo de estabelecimento →
+   vagas → carga disponível → fase → tensão, com texto de ajuda explícito sobre "carga
+   sobressalente, não demanda contratada total" (erro de preenchimento mais comum).
+4. **Custo e payback** — `capex`/`receita_mes`/`payback_meses` (skill §5) com as premissas
+   padrão (kWh médio 22, sessões/dia por tipo, custo de energia, % de instalação) exibidas e
+   editáveis no PDF; recalcular na hora ao mudar premissa.
+5. **Geração do PDF** — reportlab/weasyprint no backend; rodapé obrigatório (estimativa
+   preliminar, não substitui projeto elétrico assinado — NBR 5410/NBR 17019); "sob consulta" no
+   lugar do preço enquanto `preco_unitario` não vier da GoodWe (nunca inventar).
+6. **Ao concluir** — criar `establishment` e os `chargers` já configurados a partir do
+   resultado.
+7. **Testes unitários de `sizing.py`** — os três tipos de estabelecimento × as duas fases,
+   reproduzindo as fórmulas da skill à mão para conferir.
+
 ## Critérios de aceite
 
 - Entrada "44 kW, trifásico, shopping, 20 vagas" produz um resultado coerente, e a conta pode

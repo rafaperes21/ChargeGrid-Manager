@@ -36,6 +36,32 @@ A tela que o jurado vai olhar primeiro. Desktop-first, densa, operacional.
 - [ ] Comparativo entre meses
 - [ ] Exportação em PDF (cortável se o tempo apertar — manter a tela)
 
+## Plano de execução
+
+Owner: Pessoa 2 (frontend). Depende de M1 (auth/CRUD) e M3 (tarifação/sessões); pode começar
+com dado mockado a partir dos wireframes de M0 antes de M1/M3 fecharem (Fase 1 do
+`plano-2-pessoas.md`).
+
+1. **Base compartilhada** — se ainda não existir de M0: pacote/diretório comum com badge de
+   status (cores + ícone + rótulo, nunca só cor — skill `ui-dois-portais` §1), formatadores
+   `pt-BR` (`Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'})`), tipos gerados do
+   OpenAPI.
+2. **Dashboard** (prioridade máxima, fazer primeiro) — mapa de vagas com `react-query`
+   `refetchInterval` de 15–30s e "atualizado há X" visível; potência atual vs. limite com o
+   limiar marcado na barra; alerta persistente ao atingir 90% da carga; receita
+   dia/semana/mês; sessões ativas.
+3. **Gestão de tarifas** — editor visual das faixas horárias consumindo a validação de
+   sobreposição/cobertura de M3 (erro do backend vira mensagem clara de qual faixa conflita);
+   pré-visualização "uma sessão de 20 kWh às 19h custaria R$ X" chamando o motor de cálculo de
+   M3.
+4. **Gestão de usuários e planos** — lista de clientes com plano/histórico/consumo do mês,
+   bloquear/desbloquear inadimplente, liberar cartão RFID.
+5. **Relatórios financeiros** — extrato mensal (receita bruta, nº sessões, kWh total, ticket
+   médio, horários de pico), comparativo entre meses; exportação em PDF é a primeira coisa a
+   cortar se o tempo apertar (manter a tela).
+6. **Estados em toda tela** — vazio, loading (skeleton, não spinner) e erro, nas 5 telas acima.
+   Fazer junto com cada tela, não como passe final.
+
 ## Critérios de aceite
 
 - Com o simulador rodando, o mapa de vagas muda de estado sozinho, sem recarregar a página.

@@ -43,6 +43,39 @@ Dois assistentes distintos, com system prompts, ferramentas e tom separados. O d
 - [ ] Resposta **fixa** (não gerada) para relato de fumaça, cheiro de queimado, faísca ou choque:
       interromper o uso, não tocar no equipamento, acionar o responsável do local
 
+## Plano de execução
+
+Lógica/prompts na Pessoa 1, widget de UI na Pessoa 2, alinhados juntos antes de codar (sync da
+Fase 3 do `plano-2-pessoas.md`: texto exato dos dois system prompts). Depende de M3 (dados de
+sessão/tarifa), M4 e M5 (telas que as ferramentas consultam).
+
+1. **Infraestrutura de chat** — endpoint no backend (frontend nunca fala com Gemini direto —
+   chave no bundle React é chave vazada); LangChain com histórico por sessão, janela de ~10
+   trocas (contexto ilimitado estoura o free tier rápido); streaming da resposta.
+2. **Segurança primeiro, antes de escrever os prompts** — `user_id`/`establishment_id`
+   injetados pelo backend nas ferramentas, nunca preenchidos pelo modelo; autorização vem do
+   token, não da conversa. Escrever já o teste "cliente pedindo dado financeiro do
+   estabelecimento não recebe" — é o critério mais fácil de esquecer depois.
+3. **Chatbot do proprietário** — system prompt técnico injetando as regras de
+   `dimensionamento-hca-g2` §2–§4; ferramentas `get_charger_status`, `get_active_sessions`,
+   `get_revenue_summary`, `calculate_sizing` (chamando `services/sizing.py` de M6 —
+   os dois caminhos não podem divergir), `get_demand_forecast`. Falta fase/carga → perguntar,
+   nunca assumir trifásico. Pergunta de projeto elétrico (bitola, disjuntor, DR, aterramento) →
+   orientação geral + encaminhamento a profissional habilitado.
+4. **Chatbot do cliente** — system prompt amigável e curto; ferramentas
+   `get_current_tariff`, `get_my_active_session`, `get_my_plan`, `get_available_spots`,
+   `get_my_queue_position`. Não altera plano/cancela assinatura pela conversa — direciona para
+   a tela (M5). Resposta **fixa**, não gerada, para relato de fumaça/cheiro de
+   queimado/faísca/choque.
+5. **Confiabilidade** — retry com backoff no rate limit do free tier; no limite, mensagem
+   honesta de indisponibilidade, nunca resposta inventada; log de pergunta + ferramentas
+   chamadas (sem PII).
+6. **Widget de chat nos dois portais** (Pessoa 2) — consumindo o endpoint da Pessoa 1; pode
+   mockar a resposta enquanto o endpoint não existe.
+7. **Testes** — pergunta de dimensionamento bate com `services/sizing.py`; "quanto falta para
+   terminar" consulta a sessão real; nenhum dos dois inventa número quando a ferramenta falha;
+   os dois tons visivelmente diferentes lado a lado.
+
 ## Critérios de aceite
 
 - "Qual modelo para minha instalação de 44 kW trifásico?" devolve recomendação coerente com

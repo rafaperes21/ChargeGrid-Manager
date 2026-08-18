@@ -25,6 +25,38 @@ com ambiente reproduzível em qualquer máquina do time.
 - [ ] Desenhos das telas principais (Figma ou papel fotografado) commitados em `docs/`:
       dashboard do proprietário e sessão em andamento do cliente, no mínimo
 
+## Plano de execução
+
+Feito pelas duas pessoas juntas (ver `tasks/plano-2-pessoas.md`, Fase 0). Ordem pensada para
+não bloquear ninguém.
+
+1. **Nome do produto** — `ChargeGrid-Manager` (kebab-case) já decidido e propagado em
+   `CLAUDE.md`, `README.md`, `tasks/README.md` e nas descrições de skill. Falta só levar para
+   os `package.json` quando forem criados nos passos 4 e 5.
+2. **Branch protection** — proteger `main` (exigir PR + CI verde antes de merge); comunicar o
+   fluxo branch-por-feature no README.
+3. **`docker-compose.yml`** — serviço `postgres` com volume nomeado e variáveis via `.env`.
+   Serviços de app entram no compose (ou documentados no README) conforme os passos 4–6 forem
+   existindo.
+4. **`backend/` mínimo** (paralelo ao 5) — `pyproject.toml`/`requirements.txt` com FastAPI +
+   Uvicorn + SQLAlchemy + Alembic; `app/main.py` com `GET /health`; `.env.example` com
+   `DATABASE_URL` e o que mais for previsível.
+5. **`ia/` mínimo** (paralelo ao 4) — mesmo padrão do passo 4, só `/health`. Sem modelo real
+   ainda; isso é M8.
+6. **`frontend-proprietario/` e `frontend-cliente/`** — `npm create vite@latest` (template
+   React) + Tailwind, tela em branco que sobe com `npm run dev`; `package.json` já com o nome
+   decidido no passo 1; `.env.example` (`VITE_API_URL`).
+7. **Desenhos das telas** — dashboard do proprietário + sessão em andamento do cliente, em
+   `docs/telas/`. Fazer **antes** de começar código de frontend de verdade (M4/M5) —
+   é a armadilha nº 1 deste milestone.
+8. **`.env.example` — auditoria final** — conferir que todo serviço (`backend/`, `ia/`, os dois
+   frontends, raiz do compose) tem o arquivo atualizado e que `.env` real está fora do git
+   (já confirmado no `.gitignore`).
+9. **CI no GitHub Actions** — workflow em PR: lint + `pytest` do backend. Validar com um PR de
+   teste.
+10. **Fechamento do `README.md`** — seção "quem faz o quê" (linkar `tasks/plano-2-pessoas.md`)
+    e atualizar "Rodando localmente" com os comandos reais depois dos passos 3–6.
+
 ## Critérios de aceite
 
 - Qualquer pessoa do time clona, roda `docker compose up` + os comandos do README e tem

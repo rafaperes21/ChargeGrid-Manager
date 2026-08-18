@@ -39,6 +39,35 @@ alerts              anomalias e avisos do dashboard
 - [ ] Seed script com dados de demo coerentes
 - [ ] OpenAPI publicado em `/docs` e avisado ao time — é o contrato com os frontends
 
+## Plano de execução
+
+Owner: Pessoa 1 (backend). Ordem pensada para não deixar a Pessoa 2 travada esperando.
+
+1. **Desenho do schema antes de codar** — passar pelas 11 entidades listadas acima, fechar
+   tipos (`Decimal`/`NUMERIC(12,4)` para dinheiro, `TIMESTAMPTZ` UTC para tempo, ver
+   `CLAUDE.md`) e relacionamentos. Mudar isso depois de M5 custa dez vezes mais — é o ponto do
+   milestone.
+2. **Modelos SQLAlchemy** em `app/models/` (um módulo por domínio: `establishment.py`,
+   `charger.py`, `user.py`, `tariff.py`, `session.py`, `queue.py`, `invoice.py`, `alert.py`).
+   Incluir os campos de **snapshot de tarifa** em `charging_sessions`
+   (`tariff_rate_applied`, `plan_discount_pct`, `free_minutes_applied`, `tariff_rule_id`) desde
+   já — é a armadilha nº 1 do milestone.
+3. **Migration inicial Alembic** (`alembic revision --autogenerate -m "schema inicial"`) +
+   índices: `charger_readings(charger_id, timestamp)`,
+   `charging_sessions(user_id, started_at)`, `charging_sessions(establishment_id, started_at)`.
+4. **Auth** — JWT (`app/core/security.py`) + Google OAuth; endpoints em `app/api/auth.py`.
+5. **Autorização `owner` vs `customer`** — dependência do FastAPI em `app/core/deps.py` que
+   barra acesso cruzado. Escrever o teste de 403 (critério de aceite) junto com a dependência,
+   não depois.
+6. **CRUD básico** — `app/api/establishments.py`, `chargers.py`, `users.py`, `plans.py`.
+   Sem regra de negócio no router (`CLAUDE.md`) — o que houver de lógica não trivial vai para
+   `services/`.
+7. **Seed script** — `backend/app/db/seed.py` (ou `scripts/seed.py`): um estabelecimento com
+   carregadores, usuários e planos utilizáveis, coerente com os cenários que M2/M4/M5 vão
+   precisar.
+8. **Publicar OpenAPI** — subir o backend, conferir `/docs`, avisar a Pessoa 2 no sync da
+   Fase 1 (`plano-2-pessoas.md`) para gerar os tipos do frontend.
+
 ## Critérios de aceite
 
 - `alembic upgrade head` sobe do zero num banco vazio, sem erro.

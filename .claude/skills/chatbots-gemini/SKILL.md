@@ -1,6 +1,6 @@
 ---
 name: chatbots-gemini
-description: System prompts, tom de voz, ferramentas e limites dos dois chatbots (proprietário técnico e cliente amigável) sobre Gemini API + LangChain. Use ao implementar, ajustar ou depurar qualquer chatbot do ChargeGrid Manager.
+description: System prompts, tom de voz, ferramentas e limites dos dois chatbots (proprietário técnico e cliente amigável) sobre Gemini API + LangChain. Use ao implementar, ajustar ou depurar qualquer chatbot do ChargeGrid-Manager.
 ---
 
 # Chatbots — proprietário e cliente

@@ -1,15 +1,13 @@
-# ChargeGrid Manager
+# ChargeGrid-Manager
 
 Plataforma de gestão de carregamento de veículos elétricos sobre o **GoodWe HCA G2**.
 Dois portais web — proprietário do estabelecimento e cliente final —, backend único e módulo
 de IA para previsão de demanda, detecção de anomalias e segmentação de clientes.
 
-> Nome provisório. Ver `CLAUDE.md` para trocar.
-
 ## O problema
 
 O HCA G2 não expõe API pública e o portal SEMS+ da GoodWe só oferece modelo **Pull**.
-O ChargeGrid Manager resolve isso com um serviço de polling que consulta o SEMS+
+O ChargeGrid-Manager resolve isso com um serviço de polling que consulta o SEMS+
 periodicamente e assume todo o controle de sessão, tarifação e dados — o hardware fica
 responsável apenas por autorizar o carregamento via RFID.
 

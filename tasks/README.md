@@ -1,4 +1,4 @@
-# Plano de execução — ChargeGrid Manager
+# Plano de execução — ChargeGrid-Manager
 
 Cada arquivo em `milestones/` define **escopo, entregáveis, critérios de aceite e dependências**.
 Um milestone só começa quando as dependências dele estão marcadas como concluídas.

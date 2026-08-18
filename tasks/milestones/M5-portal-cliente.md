@@ -51,6 +51,33 @@ Mobile-first. Usado em pé, no estacionamento, com pressa. Uma informação prin
 - [ ] Painel corporativo com rateio por departamento ou veículo
 - [ ] Fatura única mensal consolidada
 
+## Plano de execução
+
+Owner: Pessoa 2 (frontend). Depende de M1 e M3, mesma lógica de adiantar com mock do M4.
+Mobile-first do início — não adaptar depois de construir pensando em desktop.
+
+1. **Cadastro e autenticação** — login e-mail/senha + Google, cadastro do modelo do veículo
+   (alimenta % de bateria e tempo restante), método de pagamento, geração do RFID virtual
+   (QR/número) para o proprietário cadastrar no SEMS+.
+2. **Sessão em andamento** (prioridade máxima — tela mais vista do produto, fazer primeiro) —
+   hierarquia visual: valor acumulado e tempo restante grandes, kWh e tarifa secundários
+   (skill `ui-dois-portais` §4). Sem veículo cadastrado → mostrar kWh e **omitir** % de
+   bateria, nunca estimar sem o dado. Barra de progresso interpola localmente entre fetches;
+   kWh e R$ só com dado confirmado — nunca extrapolar dinheiro. Notificação push ao terminar.
+3. **Mapa de disponibilidade** — vagas livres e potência disponível em tempo (quase) real,
+   reserva com 15 min de antecedência, link Google Maps.
+4. **Fila inteligente** — posição em tempo real acima da dobra, grande (é a única informação
+   que importa para quem está na fila); notificação ao liberar, com o countdown de 15 min
+   visível.
+5. **Planos de assinatura** — comparativo avulso/mensal/trimestral; contratação e troca sempre
+   confirmadas na interface, nunca pelo chat (isso é regra também para M7).
+6. **Histórico e sustentabilidade** — lista de sessões, recibo digital (dados que um reembolso
+   corporativo exige: data, local, kWh, valor, tarifa), gráfico de consumo mensal, relatório de
+   sustentabilidade usando as fórmulas de `km_equivalentes`/`co2_evitado_kg` da skill
+   `tarifacao-e-sessoes` §7 (premissas configuráveis, declaradas no relatório).
+7. **Modo empresarial** (cortável se o tempo apertar) — cadastro de frota, painel de rateio por
+   departamento/veículo, fatura única consolidada.
+
 ## Critérios de aceite
 
 - A tela de sessão em andamento é legível de relance, numa tela de celular, sem zoom.

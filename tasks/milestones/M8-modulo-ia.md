@@ -55,6 +55,42 @@ no dashboard custa mais caro que "ainda coletando dados".
 - [ ] **Fallback obrigatório:** modelo falhou → backend mostra média histórica simples e diz
       que é média histórica. O portal não quebra porque o Prophet não convergiu
 
+## Plano de execução
+
+Owner: Pessoa 1. Depende de M2 (os 60–90 dias de histórico) e M3 (sessões/tarifas reais).
+Ordem pensada por retorno imediato: regras determinísticas de anomalia primeiro (pega a
+maioria dos casos e é praticamente grátis), depois previsão, segmentação/precificação por
+último — são os itens mais dispensáveis se o tempo apertar (`tasks/README.md`).
+
+1. **Setup do microserviço** — `/ia`, FastAPI separado, conexão **somente leitura** ao mesmo
+   Postgres. Nunca escreve em tabela transacional.
+2. **Anomalias — camada de regras determinísticas** (implementar primeiro, sempre ligada):
+   potência 0 por >30 min com veículo conectado, potência acima da nominal, `offline` por >3
+   ciclos de polling, energia acumulada regredindo. Alerta com severidade **e a leitura que
+   disparou** anexada — sem evidência, o operador ignora em uma semana.
+3. **Anomalias — camada estatística** — Isolation Forest ou z-score em janela móvel por
+   carregador/horário; botão de "falso positivo" persistindo o feedback (único rótulo real
+   disponível).
+4. **Previsão de demanda** — Prophet como padrão; alvo sessões/kWh por hora, 24–48h, por
+   estabelecimento; regressores hora/dia da semana/feriado/tipo de estabelecimento; mínimo 4
+   semanas de histórico, abaixo disso `insufficient_data`. Backtest com **corte temporal**
+   (nunca split aleatório — vaza futuro), MAE/MAPE por faixa horária. Endpoint do mapa de calor
+   com rótulo em linguagem natural.
+5. **Precificação dinâmica sugerida** — regra sobre a previsão (acima do p80 → sugere aumento,
+   abaixo do p20 → redução), limites `max_increase_pct`/`max_decrease_pct` configurados pelo
+   proprietário. Padrão é sugerir, não aplicar; aplicação automática só dentro dos limites, com
+   log de auditoria; nunca em sessão já iniciada (tarifa é congelada, skill
+   `tarifacao-e-sessoes`).
+6. **Segmentação de clientes** — K-Means + `StandardScaler`, k escolhido por
+   cotovelo+silhouette e depois fixado; features de `ml-previsao-e-anomalias` §4; nomear os
+   clusters validando contra os centroides (`carregador_noturno`, `usuario_de_pico`,
+   `cliente_de_passagem`, `frota_corporativa`) — cluster com nome numérico não serve para o
+   proprietário criar promoção.
+7. **Engenharia** — modelos em `/ia/models/` fora do git; retreino agendado (previsão diária,
+   segmentação semanal, nunca por requisição); todo endpoint devolve `model_version` e
+   `trained_at`; cache das previsões; fallback obrigatório para média histórica simples (com
+   aviso) se o modelo falhar — o portal não pode quebrar por causa disso.
+
 ## Critérios de aceite
 
 - Com os 90 dias gerados em M2, a previsão roda e o mapa de calor aparece no dashboard.
