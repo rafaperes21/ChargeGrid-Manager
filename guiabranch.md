@@ -1,0 +1,1 @@
+# Sempre que for codar, criar uma branch com o pr (pode pedir pro claude)
