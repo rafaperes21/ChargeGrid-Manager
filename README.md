@@ -46,6 +46,8 @@ docker compose up -d
 
 ```bash
 cd backend && python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+.venv/bin/alembic upgrade head
+.venv/bin/python -m app.db.seed   # opcional: popula dados de demo
 .venv/bin/uvicorn app.main:app --reload
 ```
 
