@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" font-family="Helvetica, Arial, sans-serif">
+  <rect width="1200" height="760" fill="#ffffff" stroke="#cccccc"/>
+
+  <!-- Top bar -->
+  <rect x="0" y="0" width="1200" height="56" fill="#f3f4f6" stroke="#d1d5db"/>
+  <text x="20" y="34" font-size="18" font-weight="bold" fill="#111827">ChargeGrid-Manager · Estacionamento Central</text>
+  <text x="1080" y="34" font-size="13" fill="#374151">Gabriel ▾</text>
+
+  <!-- Sidebar -->
+  <rect x="0" y="56" width="180" height="704" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="20" y="96" font-size="13" fill="#111827" font-weight="bold">Dashboard</text>
+  <text x="20" y="128" font-size="13" fill="#6b7280">Tarifas</text>
+  <text x="20" y="160" font-size="13" fill="#6b7280">Usuários e planos</text>
+  <text x="20" y="192" font-size="13" fill="#6b7280">Fila</text>
+  <text x="20" y="224" font-size="13" fill="#6b7280">Relatórios</text>
+  <text x="20" y="256" font-size="13" fill="#6b7280">Onboarding</text>
+
+  <!-- Alert banner -->
+  <rect x="200" y="72" width="980" height="36" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="216" y="95" font-size="13" fill="#92400e">⚠ Potência total em 92% do limite contratado (36,8 / 40 kW) — alerta persistente acima de 90%</text>
+
+  <!-- KPI row -->
+  <g>
+    <rect x="200" y="124" width="230" height="110" fill="#ffffff" stroke="#d1d5db"/>
+    <text x="216" y="148" font-size="12" fill="#6b7280">POTÊNCIA ATUAL / LIMITE</text>
+    <text x="216" y="182" font-size="24" font-weight="bold" fill="#111827">36,8 / 40 kW</text>
+    <rect x="216" y="196" width="198" height="10" fill="#e5e7eb"/>
+    <rect x="216" y="196" width="182" height="10" fill="#f59e0b"/>
+    <line x1="396" y1="192" x2="396" y2="210" stroke="#111827" stroke-width="1.5"/>
+    <text x="216" y="222" font-size="10" fill="#9ca3af">limiar 90% marcado na barra</text>
+
+    <rect x="445" y="124" width="230" height="110" fill="#ffffff" stroke="#d1d5db"/>
+    <text x="461" y="148" font-size="12" fill="#6b7280">RECEITA HOJE</text>
+    <text x="461" y="182" font-size="24" font-weight="bold" fill="#111827">R$ 842,50</text>
+    <text x="461" y="206" font-size="11" fill="#9ca3af">semana: R$ 5.930,10 · mês: R$ 24.180,00</text>
+
+    <rect x="690" y="124" width="230" height="110" fill="#ffffff" stroke="#d1d5db"/>
+    <text x="706" y="148" font-size="12" fill="#6b7280">SESSÕES ATIVAS</text>
+    <text x="706" y="182" font-size="24" font-weight="bold" fill="#111827">7</text>
+    <text x="706" y="206" font-size="11" fill="#9ca3af">3 na fila aguardando vaga</text>
+
+    <rect x="935" y="124" width="245" height="110" fill="#ffffff" stroke="#d1d5db"/>
+    <text x="951" y="148" font-size="12" fill="#6b7280">ATUALIZADO</text>
+    <text x="951" y="182" font-size="20" font-weight="bold" fill="#111827">há 18s</text>
+    <text x="951" y="206" font-size="11" fill="#9ca3af">polling SEMS+ a cada 1–5 min</text>
+  </g>
+
+  <!-- Mapa de vagas -->
+  <text x="200" y="264" font-size="14" font-weight="bold" fill="#111827">Mapa de vagas</text>
+  <g font-size="11">
+    <!-- legend -->
+    <rect x="200" y="276" width="12" height="12" fill="#22c55e"/><text x="217" y="286" fill="#374151">Livre</text>
+    <rect x="270" y="276" width="12" height="12" fill="#3b82f6"/><text x="287" y="286" fill="#374151">Carregando</text>
+    <rect x="365" y="276" width="12" height="12" fill="#ef4444"/><text x="382" y="286" fill="#374151">Problema</text>
+    <rect x="455" y="276" width="12" height="12" fill="#f59e0b"/><text x="472" y="286" fill="#374151">Reservado</text>
+    <rect x="550" y="276" width="12" height="12" fill="#9ca3af"/><text x="567" y="286" fill="#374151">Offline</text>
+    <text x="640" y="286" fill="#9ca3af">(cor nunca é o único sinal — cada card tem ícone + rótulo em texto)</text>
+  </g>
+
+  <!-- charger cards grid 4x2 -->
+  <g font-size="11">
+    <!-- row1 -->
+    <rect x="200" y="300" width="140" height="90" fill="#f0fdf4" stroke="#22c55e"/>
+    <text x="212" y="318" fill="#111827" font-weight="bold">Vaga 01</text>
+    <text x="212" y="334" fill="#166534">● Livre</text>
+
+    <rect x="350" y="300" width="140" height="90" fill="#eff6ff" stroke="#3b82f6"/>
+    <text x="362" y="318" fill="#111827" font-weight="bold">Vaga 02</text>
+    <text x="362" y="334" fill="#1d4ed8">▶ Carregando</text>
+    <rect x="362" y="342" width="116" height="8" fill="#dbeafe"/>
+    <rect x="362" y="342" width="70" height="8" fill="#3b82f6"/>
+    <text x="362" y="366" fill="#374151">18,4 kWh · R$ 27,90</text>
+    <text x="362" y="380" fill="#9ca3af">atualizado há 22s</text>
+
+    <rect x="500" y="300" width="140" height="90" fill="#fef2f2" stroke="#ef4444"/>
+    <text x="512" y="318" fill="#111827" font-weight="bold">Vaga 03</text>
+    <text x="512" y="334" fill="#b91c1c">✕ Problema</text>
+    <text x="512" y="350" fill="#7f1d1d">Falha de comunicação</text>
+
+    <rect x="650" y="300" width="140" height="90" fill="#fffbeb" stroke="#f59e0b"/>
+    <text x="662" y="318" fill="#111827" font-weight="bold">Vaga 04</text>
+    <text x="662" y="334" fill="#92400e">◐ Reservado</text>
+    <text x="662" y="350" fill="#78350f">expira em 09:12</text>
+
+    <!-- row2 -->
+    <rect x="800" y="300" width="140" height="90" fill="#f9fafb" stroke="#9ca3af"/>
+    <text x="812" y="318" fill="#111827" font-weight="bold">Vaga 05</text>
+    <text x="812" y="334" fill="#4b5563">○ Offline</text>
+    <text x="812" y="350" fill="#6b7280">sem SEMS+ há 12 min</text>
+
+    <rect x="950" y="300" width="140" height="90" fill="#f0fdf4" stroke="#22c55e"/>
+    <text x="962" y="318" fill="#111827" font-weight="bold">Vaga 06</text>
+    <text x="962" y="334" fill="#166534">● Livre</text>
+
+    <rect x="1100" y="300" width="80" height="90" fill="#eff6ff" stroke="#3b82f6"/>
+    <text x="1112" y="318" fill="#111827" font-weight="bold" font-size="10">Vaga 07</text>
+    <text x="1112" y="334" fill="#1d4ed8" font-size="10">▶ 62%</text>
+  </g>
+
+  <!-- Tabela sessões ativas -->
+  <text x="200" y="424" font-size="14" font-weight="bold" fill="#111827">Sessões ativas</text>
+  <rect x="200" y="436" width="980" height="200" fill="#ffffff" stroke="#d1d5db"/>
+  <g font-size="11" fill="#6b7280">
+    <text x="216" y="456">VAGA</text>
+    <text x="320" y="456">USUÁRIO</text>
+    <text x="480" y="456">INÍCIO</text>
+    <text x="600" y="456">kWh</text>
+    <text x="700" y="456">TARIFA VIGENTE</text>
+    <text x="860" y="456">VALOR ACUMULADO</text>
+  </g>
+  <line x1="200" y1="466" x2="1180" y2="466" stroke="#e5e7eb"/>
+  <g font-size="12" fill="#111827">
+    <text x="216" y="490">02</text><text x="320" y="490">joao.silva@...</text><text x="480" y="490">14:02</text><text x="600" y="490">18,4</text><text x="700" y="490">R$ 1,52/kWh (pico)</text><text x="860" y="490">R$ 27,90</text>
+    <text x="216" y="518">04</text><text x="320" y="518">maria.souza@...</text><text x="480" y="518">14:20</text><text x="600" y="518">6,1</text><text x="700" y="518">R$ 0,98/kWh (fora pico)</text><text x="860" y="518">R$ 5,98</text>
+    <text x="216" y="546" fill="#9ca3af">… (rolagem)</text>
+  </g>
+
+  <text x="200" y="672" font-size="11" fill="#9ca3af">Wireframe de baixa fidelidade — M0. Densidade alta, desktop-first. Ver skill ui-dois-portais.</text>
+</svg>
