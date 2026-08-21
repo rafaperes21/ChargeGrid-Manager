@@ -1,6 +1,9 @@
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# Migrations geradas pelo `alembic revision --autogenerate` nao sao escritas a mao -
+# nao faz sentido aplicar as mesmas regras de estilo do resto do codigo.
+extend-exclude = ["migrations/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
