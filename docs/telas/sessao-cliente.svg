@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 375 780" font-family="Helvetica, Arial, sans-serif">
+  <rect width="375" height="780" fill="#ffffff" stroke="#cccccc"/>
+
+  <!-- status bar / header -->
+  <rect x="0" y="0" width="375" height="56" fill="#111827"/>
+  <text x="20" y="34" font-size="16" fill="#ffffff">‹  Estacionamento Central</text>
+
+  <!-- charging status pill -->
+  <rect x="20" y="76" width="130" height="28" rx="14" fill="#dbeafe"/>
+  <text x="34" y="95" font-size="12" fill="#1d4ed8">▶ Carregando · Vaga 02</text>
+
+  <!-- "atualizado há" -->
+  <text x="335" y="95" font-size="10" fill="#9ca3af" text-anchor="end">há 14s</text>
+
+  <!-- valor acumulado — hierarquia máxima -->
+  <text x="20" y="170" font-size="13" fill="#6b7280">VALOR ACUMULADO</text>
+  <text x="20" y="222" font-size="52" font-weight="bold" fill="#111827">R$ 27,90</text>
+  <text x="20" y="246" font-size="12" fill="#9ca3af">último dado confirmado — nunca extrapolado</text>
+
+  <!-- tempo restante — hierarquia máxima -->
+  <text x="20" y="292" font-size="13" fill="#6b7280">TEMPO RESTANTE ESTIMADO</text>
+  <text x="20" y="336" font-size="36" font-weight="bold" fill="#111827">42 min</text>
+
+  <!-- progress ring placeholder -->
+  <circle cx="300" cy="290" r="55" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+  <circle cx="300" cy="290" r="55" fill="none" stroke="#3b82f6" stroke-width="10"
+          stroke-dasharray="220 345" stroke-linecap="round" transform="rotate(-90 300 290)"/>
+  <text x="300" y="285" font-size="20" font-weight="bold" fill="#111827" text-anchor="middle">64%</text>
+  <text x="300" y="303" font-size="10" fill="#6b7280" text-anchor="middle">bateria est.</text>
+  <text x="300" y="360" font-size="9" fill="#9ca3af" text-anchor="middle">se veículo não cadastrado:</text>
+  <text x="300" y="372" font-size="9" fill="#9ca3af" text-anchor="middle">omitir %, mostrar só kWh</text>
+
+  <!-- secondary info row -->
+  <rect x="20" y="400" width="160" height="80" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="36" y="424" font-size="11" fill="#6b7280">ENERGIA</text>
+  <text x="36" y="454" font-size="22" font-weight="bold" fill="#111827">18,4 kWh</text>
+
+  <rect x="195" y="400" width="160" height="80" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="211" y="424" font-size="11" fill="#6b7280">TARIFA VIGENTE</text>
+  <text x="211" y="454" font-size="18" font-weight="bold" fill="#111827">R$ 1,52/kWh</text>
+  <text x="211" y="470" font-size="10" fill="#9ca3af">horário de pico</text>
+
+  <!-- barra de progresso local -->
+  <text x="20" y="512" font-size="11" fill="#6b7280">Progresso interpolado localmente entre atualizações</text>
+  <rect x="20" y="522" width="335" height="12" rx="6" fill="#e5e7eb"/>
+  <rect x="20" y="522" width="215" height="12" rx="6" fill="#3b82f6"/>
+
+  <!-- estado vazio de fila (exemplo) -->
+  <rect x="20" y="560" width="335" height="50" fill="#f0fdf4" stroke="#22c55e"/>
+  <text x="36" y="590" font-size="12" fill="#166534">Sem fila nesta unidade agora</text>
+
+  <!-- CTA -->
+  <rect x="20" y="640" width="335" height="52" rx="8" fill="#111827"/>
+  <text x="187" y="672" font-size="15" fill="#ffffff" text-anchor="middle">Encerrar sessão</text>
+
+  <rect x="20" y="704" width="335" height="44" rx="8" fill="#ffffff" stroke="#d1d5db"/>
+  <text x="187" y="731" font-size="13" fill="#374151" text-anchor="middle">Ver recibo</text>
+
+  <text x="20" y="766" font-size="10" fill="#9ca3af">Wireframe de baixa fidelidade — M0. Mobile-first, uma informação principal por bloco. Ver skill ui-dois-portais.</text>
+</svg>

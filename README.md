@@ -29,22 +29,42 @@ responsável apenas por autorizar o carregamento via RFID.
 2. Leia [`tasks/README.md`](tasks/README.md) — os 10 milestones e o caminho crítico.
 3. Comece por [`M0 — Fundação`](tasks/milestones/M0-fundacao.md).
 
+## Quem faz o quê
+
+Time de 2 pessoas — backend (dados, integrações, IA) e frontend (os dois portais). Divisão
+completa, por fase e com pontos de sincronização, em
+[`tasks/plano-2-pessoas.md`](tasks/plano-2-pessoas.md).
+
 ## Rodando localmente
 
-Ainda não implementado — este repositório contém a estrutura e o plano. Os comandos abaixo
-passam a valer ao final de M0:
+Copie o `.env.example` de cada serviço para `.env` antes de rodar (raiz, `backend/`,
+`frontend-cliente/`, `frontend-proprietario/`, `ia/`).
 
 ```bash
 docker compose up -d
 ```
 
 ```bash
-cd backend && uvicorn app.main:app --reload
+cd backend && python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+.venv/bin/alembic upgrade head
+.venv/bin/python -m app.db.seed   # opcional: popula dados de demo
+.venv/bin/uvicorn app.main:app --reload
 ```
 
 ```bash
-cd frontend-proprietario && npm run dev
+cd ia && python -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/uvicorn app.main:app --reload --port 8001
 ```
+
+```bash
+cd frontend-proprietario && npm install && npm run dev
+```
+
+```bash
+cd frontend-cliente && npm install && npm run dev
+```
+
+`GET /health` responde `{"status": "ok"}` no backend e no serviço de IA.
 
 ## Limitações conhecidas
 
