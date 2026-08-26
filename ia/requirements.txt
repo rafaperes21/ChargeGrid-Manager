@@ -1,2 +1,12 @@
 fastapi==0.115.0
 uvicorn[standard]==0.32.0
+sqlalchemy==2.0.36
+psycopg[binary]==3.2.3
+pydantic-settings==2.6.1
+# prophet==1.1.6 embute um cmdstan pre-compilado (nao precisa de toolchain C++ para rodar).
+# cmdstanpy>=1.3 ficou mais estrito na validacao desse cmdstan embutido e quebra o carregamento
+# do backend (erro "'Prophet' object has no attribute 'stan_backend'") - fixar em 1.2.0.
+# pandas 3.x quebra `Prophet.fit` (ValueError: cannot reindex on an axis with duplicate labels).
+prophet==1.1.6
+cmdstanpy==1.2.0
+pandas<3

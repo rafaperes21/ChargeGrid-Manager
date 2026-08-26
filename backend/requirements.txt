@@ -10,3 +10,4 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 google-auth==2.35.0
 requests==2.32.3
+langchain-ollama==1.1.0
