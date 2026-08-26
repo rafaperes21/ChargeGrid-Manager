@@ -1,6 +1,6 @@
 # M2 — Simulador de hardware e polling
 
-Status: não iniciado
+Status: em andamento
 Responsável: —
 Depende de: M1
 Skill: `.claude/skills/integracao-sems-simulador/`
@@ -13,18 +13,25 @@ sem isso. **É o gargalo escondido do projeto; comece cedo.**
 ## Escopo
 
 - [ ] Interface `SemsClient` + `SimulatedSemsClient` e `RealSemsClient` (stub), escolhidos
-      por `SEMS_SOURCE` no `.env`
-- [ ] Schema `ChargerReading` conforme a skill
-- [ ] Serviço de polling assíncrono, intervalo configurável (default 60 s)
-- [ ] Persistência idempotente em `charger_readings` (chave = timestamp da leitura no device)
-- [ ] Integração de energia por **trapézio** entre leituras
-- [ ] Tolerância a falha: SEMS+ indisponível não derruba a API; após N falhas marca `offline`
-- [ ] Simulador com curva P(t): rampa → platô → taper acima de 80 % → fim, com ruído de ±2 %
-- [ ] Limite pelo OBC do veículo, não só pelo carregador
-- [ ] Perfis de dia típico por tipo de estabelecimento
-- [ ] Geração de **60–90 dias de histórico retroativo** (sem isso M8 não tem treino)
-- [ ] Cenários injetáveis: pico com fila cheia, falha de equipamento, pico anormal de consumo
-- [ ] `--seed` para reprodutibilidade
+      por `SEMS_SOURCE` no `.env` — `backend/app/integracoes/` só tem `.gitkeep`, nada implementado
+- [ ] Schema `ChargerReading` conforme a skill (existe o modelo SQLAlchemy `ChargerReading`, mas
+      não o contrato/schema Pydantic de polling descrito na skill)
+- [ ] Serviço de polling assíncrono, intervalo configurável (default 60 s) — não existe;
+      dados de demo entram via script batch (`historical_generator.py`), não via polling contínuo
+- [ ] Persistência idempotente em `charger_readings` (chave = timestamp da leitura no device) —
+      depende do serviço de polling acima
+- [x] Integração de energia por **trapézio** entre leituras (`backend/simulador/energy.py`,
+      com teste dedicado)
+- [ ] Tolerância a falha: SEMS+ indisponível não derruba a API; após N falhas marca `offline` —
+      não se aplica ainda (não há polling rodando contra nada)
+- [x] Simulador com curva P(t): rampa → platô → taper acima de 80 % → fim, com ruído de ±2 %
+      (`backend/simulador/curve_engine.py`)
+- [x] Limite pelo OBC do veículo, não só pelo carregador (`backend/simulador/vehicles.py`)
+- [x] Perfis de dia típico por tipo de estabelecimento (`backend/simulador/profiles.py`)
+- [x] Geração de **60–90 dias de histórico retroativo** (`historical_generator.py`)
+- [x] Cenários injetáveis: pico com fila cheia, falha de equipamento, pico anormal de consumo
+      (`backend/simulador/anomalies.py`)
+- [x] `--seed` para reprodutibilidade (`historical_generator.py --seed`)
 
 ## Plano de execução
 

@@ -1,6 +1,6 @@
 # M4 — Portal do Proprietário
 
-Status: não iniciado
+Status: em andamento
 Responsável: —
 Depende de: M1, M3
 Skill: `.claude/skills/ui-dois-portais/`
@@ -12,27 +12,31 @@ A tela que o jurado vai olhar primeiro. Desktop-first, densa, operacional.
 ## Escopo
 
 ### Dashboard (prioridade máxima)
-- [ ] Mapa visual das vagas: livre (verde) · carregando (azul + progresso) · problema (vermelho)
+- [x] Mapa visual das vagas: livre (verde) · carregando (azul + progresso) · problema (vermelho)
       · reservado (âmbar) · offline (cinza) — sempre com ícone e rótulo, nunca só cor
-- [ ] Potência total consumida agora vs. limite configurado, com o limiar marcado na barra
-- [ ] Receita do dia, semana e mês
-- [ ] Número de sessões ativas
-- [ ] **Alerta ao atingir 90 % da carga configurada** — visível e persistente
-- [ ] Indicador "atualizado há X" perto de todo dado ao vivo
-- [ ] Refetch a cada 15–30 s
+- [x] Potência total consumida agora vs. limite configurado, com o limiar marcado na barra
+- [ ] Receita do dia, semana e mês — `DashboardResponse.revenue_today` sempre `None`
+      (`services/dashboard.py` documenta: depende do motor de tarifação de M3, que não existe)
+- [ ] Número de sessões ativas — mesma razão acima, sempre `None`
+- [x] **Alerta ao atingir 90 % da carga configurada** — visível e persistente
+- [x] Indicador "atualizado há X" perto de todo dado ao vivo
+- [x] Refetch a cada 15–30 s (`refetchInterval: 20_000`)
 
 ### Gestão de tarifas
-- [ ] Editor visual das faixas horárias com validação de sobreposição/cobertura
+- [x] Editor visual das faixas horárias com validação de sobreposição/cobertura
 - [ ] Criação de regras especiais (desconto de plano, minutos grátis)
-- [ ] Pré-visualização: "uma sessão de 20 kWh às 19h custaria R$ X"
+- [ ] Pré-visualização: "uma sessão de 20 kWh às 19h custaria R$ X" — não há `pricing.py` (M3)
+      para alimentar o cálculo
 
 ### Gestão de usuários e planos
-- [ ] Lista de clientes com plano ativo, histórico e consumo do mês
-- [ ] Bloquear/desbloquear inadimplente
-- [ ] Liberar novo cartão RFID pelo painel
+- [x] Lista de clientes com plano ativo (`UsuariosPlanosPage.jsx` consome a API real)
+- [ ] Histórico e consumo do mês — depende de `charging_sessions` reais (M3)
+- [ ] Bloquear/desbloquear inadimplente — não encontrado na tela nem na API
+- [ ] Liberar novo cartão RFID pelo painel — tela só exibe o RFID já cadastrado, sem ação de emitir
 
 ### Relatórios financeiros
-- [ ] Extrato mensal: receita bruta, nº de sessões, kWh total, ticket médio, horários de pico
+- [ ] Extrato mensal: receita bruta, nº de sessões, kWh total, ticket médio, horários de pico —
+      `RelatoriosPage.jsx` é placeholder, sem nenhuma chamada à API
 - [ ] Comparativo entre meses
 - [ ] Exportação em PDF (cortável se o tempo apertar — manter a tela)
 

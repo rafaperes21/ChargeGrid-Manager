@@ -1,6 +1,6 @@
 # M6 — Onboarding, dimensionamento e orçamento em PDF
 
-Status: não iniciado
+Status: em andamento
 Responsável: —
 Depende de: M4
 Skill: `.claude/skills/dimensionamento-hca-g2/`
@@ -12,22 +12,27 @@ ele entra sem saber o que comprar e sai com um orçamento para levar à GoodWe.
 
 ## Escopo
 
-- [ ] Fluxo guiado em etapas: tipo de estabelecimento → nº de vagas → carga disponível (kW) →
-      fase (mono/trifásica) → tensão
+- [x] Fluxo guiado em etapas: tipo de estabelecimento → nº de vagas → carga disponível (kW) →
+      fase (mono/trifásica) → tensão (`OnboardingPage.jsx`)
 - [ ] Texto de ajuda explicando que a carga pedida é a **sobressalente**, não a demanda
       contratada total — é o erro de preenchimento mais comum
-- [ ] `services/sizing.py`: cálculo de quantos HCA G2 cabem, aplicando margem de segurança
-      (80 %) e fator de simultaneidade por tipo de estabelecimento
-- [ ] `services/charger_catalog.py`: constantes dos modelos GW7K / GW11K / GW22K em um só lugar
-- [ ] Recomendação de modelo, com justificativa em texto (por que 2× GW11K em vez de 1× GW22K)
-- [ ] Caso `max_chargers == 0`: informar a carga mínima necessária, não devolver erro seco
-- [ ] Custo estimado de aquisição + instalação
-- [ ] Payback com base na receita projetada por sessão
-- [ ] Premissas (kWh médio, sessões/dia, custo da energia) visíveis e **editáveis**
-- [ ] Geração do PDF do orçamento
+- [x] `services/sizing.py`: cálculo de quantos HCA G2 cabem, aplicando margem de segurança
+      (80 %) e fator de simultaneidade por tipo de estabelecimento (implementado em
+      `services/dimensionamento.py`)
+- [x] `services/charger_catalog.py`: constantes dos modelos GW7K / GW11K / GW22K em um só lugar
+- [x] Recomendação de modelo, com justificativa em texto (por que 2× GW11K em vez de 1× GW22K)
+- [x] Caso `max_chargers == 0`: informar a carga mínima necessária, não devolver erro seco
+- [x] Custo estimado de aquisição + instalação
+- [ ] Payback com base na receita projetada por sessão — `budget` calcula com uma tarifa
+      assumida fixa (`_TARIFA_ASSUMIDA_PARA_PAYBACK`), já que `preco_unitario` não veio da GoodWe
+- [ ] Premissas (kWh médio, sessões/dia, custo da energia) visíveis e **editáveis** — não
+      encontrado na tela; endpoint não aceita essas premissas como parâmetro
+- [ ] Geração do PDF do orçamento — endpoint só devolve JSON; nenhuma lib de PDF
+      (reportlab/weasyprint) no `requirements.txt`
 - [ ] Rodapé obrigatório: estimativa preliminar, não substitui projeto elétrico assinado por
-      profissional habilitado (NBR 5410 / NBR 17019)
-- [ ] Ao concluir, criar o estabelecimento e os carregadores já configurados
+      profissional habilitado (NBR 5410 / NBR 17019) — depende do PDF acima
+- [ ] Ao concluir, criar o estabelecimento e os carregadores já configurados — o endpoint
+      `/onboarding/dimensionamento` apenas calcula e retorna, não persiste nada
 
 ## Plano de execução
 
