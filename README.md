@@ -37,24 +37,65 @@ completa, por fase e com pontos de sincronização, em
 
 ## Rodando localmente
 
+Pré-requisitos: Docker (Postgres), Python 3.11, Node 20.
+
+> No Windows, troque `.venv/bin/` por `.venv/Scripts/` em todos os comandos abaixo
+> (PowerShell ou Git Bash — funciona nos dois, sem precisar ativar o venv).
+
 Copie o `.env.example` de cada serviço para `.env` antes de rodar (raiz, `backend/`,
 `frontend-cliente/`, `frontend-proprietario/`, `ia/`).
+
+### 1. Banco de dados
 
 ```bash
 docker compose up -d
 ```
 
-```bash
-cd backend && python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
-.venv/bin/alembic upgrade head
-.venv/bin/python -m app.db.seed   # opcional: popula dados de demo
-.venv/bin/uvicorn app.main:app --reload
-```
+### 2. Backend
 
 ```bash
-cd ia && python -m venv .venv && .venv/bin/pip install -r requirements.txt
+cd backend
+python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+.venv/bin/alembic upgrade head
+.venv/bin/python -m app.db.seed          # popula 1 estabelecimento + 4 carregadores de demo
+.venv/bin/uvicorn app.main:app --reload  # sobe em :8000
+```
+
+O seed imprime o `establishment id` — guarde-o, é usado no passo 4.
+
+### 3. Simulador — gera histórico para a IA
+
+Sem isso a previsão de demanda não tem dado suficiente (mínimo de 4 semanas) e o detector de
+anomalias não tem nada para pegar. Roda em segundos, não precisa do backend no ar:
+
+```bash
+cd backend
+.venv/bin/python -m simulador.historical_generator --seed 42
+```
+
+Gera 60–90 dias de leituras (`charger_readings`) para os carregadores já seedados, com
+`--seed` fixo para reprodutibilidade, e imprime no final onde cada uma das 4 anomalias de
+demonstração (potência zerada, acima da nominal, offline, energia regredindo) foi injetada —
+útil para saber o que apontar na gravação. Rodar de novo sem `--force` não duplica dados.
+
+### 4. Serviço de IA
+
+```bash
+cd ia
+python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/uvicorn app.main:app --reload --port 8001
 ```
+
+Abra `http://localhost:8001/docs` e chame (usando o `establishment id` do passo 2):
+
+- `GET /anomalies/establishments/{id}?lookback_hours=2160` — alertas com evidência.
+- `GET /forecast/establishments/{id}/demand?horizon_hours=48` — mapa de calor com Prophet.
+
+Na primeira chamada de `/forecast`, o Prophet treina de verdade (leva alguns segundos) e o
+`cmdstanpy` roda um binário pré-compilado — não precisa de toolchain C++/RTools instalado,
+graças ao pin de versão em `ia/requirements.txt`.
+
+### 5. Frontends
 
 ```bash
 cd frontend-proprietario && npm install && npm run dev
@@ -64,7 +105,11 @@ cd frontend-proprietario && npm install && npm run dev
 cd frontend-cliente && npm install && npm run dev
 ```
 
-`GET /health` responde `{"status": "ok"}` no backend e no serviço de IA.
+Ainda são telas em branco (M4/M5 não começaram) — sobem, mas não têm o que mostrar.
+
+### Verificação rápida
+
+`GET /health` responde `{"status": "ok"}` no backend (`:8000`) e no serviço de IA (`:8001`).
 
 ## Limitações conhecidas
 
