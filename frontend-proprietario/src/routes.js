@@ -8,4 +8,5 @@ export const routes = [
   { path: '/fila', title: 'Fila' },
   { path: '/relatorios', title: 'Relatórios' },
   { path: '/onboarding', title: 'Onboarding' },
+  { path: '/assistente', title: 'Assistente' },
 ]
