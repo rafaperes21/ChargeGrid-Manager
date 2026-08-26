@@ -1,11 +1,60 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
 @import "tailwindcss";
 
-/* Cores de status de carregador — skill ui-dois-portais. Únicas em todo o produto,
-   usadas nos dois portais; nunca redefinir localmente numa tela. */
+/* Identidade visual ChargeGrid-Manager - do modelo de design (Figma real, nao o wireframe
+   de baixa fidelidade). Tokens usados nos dois portais - nunca redefinir localmente numa tela. */
 @theme {
   --color-status-livre: #16a34a;
   --color-status-carregando: #2563eb;
   --color-status-problema: #dc2626;
   --color-status-reservado: #d97706;
   --color-status-offline: #6b7280;
+
+  --color-ink: #0e0a1a;
+  --color-ink-soft: #2a2732;
+  --color-brand: #e60012;
+  --color-brand-hover: #b8000e;
+  --color-accent-purple: #7c3aed;
+  --color-accent-orange: #ff7a1a;
+  --color-cream: #faf9f6;
+  --color-hairline: #eae6f2;
+  --color-muted: #8e8b99;
+  --color-muted-2: #726d7d;
+  --color-muted-3: #9a96a6;
+
+  --font-heading: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-ink);
+  background: var(--color-cream);
+}
+
+@keyframes cgm-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+@keyframes cgm-sweep {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 0%; }
+}
+@keyframes cgm-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(230, 0, 18, 0.35); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(230, 0, 18, 0); }
+}
+@keyframes cgm-blink {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+@keyframes cgm-dash {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -32; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cgm-flow, .cgm-sweep, .cgm-pulse, .cgm-blink, .cgm-dash {
+    animation: none !important;
+  }
 }

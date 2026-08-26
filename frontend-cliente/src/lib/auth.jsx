@@ -8,48 +8,38 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [token, setTokenState] = useState(() => getToken())
   const [user, setUser] = useState(null)
-  const [establishment, setEstablishment] = useState(null)
-  const [loadingEstablishment, setLoadingEstablishment] = useState(Boolean(getToken()))
+  const [loadingUser, setLoadingUser] = useState(Boolean(getToken()))
 
   const logout = useCallback(() => {
     persistToken(null)
     setTokenState(null)
     setUser(null)
-    setEstablishment(null)
   }, [])
 
   const login = useCallback(async (email, password) => {
     const { access_token: accessToken } = await apiClient.post('/auth/login', { email, password })
     persistToken(accessToken)
     setTokenState(accessToken)
-
-    const [me, establishments] = await Promise.all([
-      apiClient.get('/users/me'),
-      apiClient.get('/establishments/me'),
-    ])
-    setUser(me)
-    setEstablishment(establishments[0] ?? null)
+    setUser(await apiClient.get('/users/me'))
   }, [])
 
-  // Restaura usuario/estabelecimento apos um reload de pagina com token ja salvo.
+  // Restaura o usuario apos um reload de pagina com token ja salvo.
   useEffect(() => {
     if (!token || user) {
-      setLoadingEstablishment(false)
+      setLoadingUser(false)
       return
     }
     let cancelled = false
-    Promise.all([apiClient.get('/users/me'), apiClient.get('/establishments/me')])
-      .then(([me, establishments]) => {
-        if (!cancelled) {
-          setUser(me)
-          setEstablishment(establishments[0] ?? null)
-        }
+    apiClient
+      .get('/users/me')
+      .then((me) => {
+        if (!cancelled) setUser(me)
       })
       .catch(() => {
         if (!cancelled) logout()
       })
       .finally(() => {
-        if (!cancelled) setLoadingEstablishment(false)
+        if (!cancelled) setLoadingUser(false)
       })
     return () => {
       cancelled = true
@@ -58,7 +48,7 @@ export function AuthProvider({ children }) {
   }, [token])
 
   return (
-    <AuthContext.Provider value={{ token, user, establishment, loadingEstablishment, login, logout }}>
+    <AuthContext.Provider value={{ token, user, loadingUser, login, logout }}>
       {children}
     </AuthContext.Provider>
   )

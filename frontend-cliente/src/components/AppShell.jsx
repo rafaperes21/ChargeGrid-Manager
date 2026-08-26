@@ -1,33 +1,25 @@
-import { NavLink, Outlet } from 'react-router-dom'
-import { routes } from '../routes'
+import { Outlet } from 'react-router-dom'
+import { BottomNav } from './BottomNav'
+import { useAuth } from '../lib/auth'
 
-// Mobile-first: container estreito, nav de abas embaixo (uso em pé, no estacionamento).
-// Ver skill ui-dois-portais — o layout final vem do Figma, isto é só a estrutura.
+// Mobile-first: usado em pé, no estacionamento, com pouca paciência (skill ui-dois-portais).
 export function AppShell() {
+  const { user } = useAuth()
+
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">
-      <header className="border-b border-slate-200 p-4">
-        <p className="text-sm font-semibold text-slate-900">ChargeGrid-Manager</p>
-      </header>
+    <div className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col bg-white font-body">
+      <div className="flex items-center gap-2.5 bg-ink px-5 py-[18px] text-white">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" />
+        </svg>
+        <span className="font-heading text-[15px] font-semibold">{user?.full_name ?? 'ChargeGrid'}</span>
+      </div>
 
-      <main className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col overflow-y-auto">
         <Outlet />
-      </main>
+      </div>
 
-      <nav className="flex border-t border-slate-200">
-        {routes.map((route) => (
-          <NavLink
-            key={route.path}
-            to={route.path}
-            end={route.path === '/'}
-            className={({ isActive }) =>
-              `flex-1 py-3 text-center text-xs ${isActive ? 'font-semibold text-slate-900' : 'text-slate-400'}`
-            }
-          >
-            {route.title}
-          </NavLink>
-        ))}
-      </nav>
+      <BottomNav />
     </div>
   )
 }
