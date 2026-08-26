@@ -1,4 +1,5 @@
 const API_URL = import.meta.env.VITE_API_URL
+const TOKEN_STORAGE_KEY = 'chargegrid_token'
 
 export class ApiError extends Error {
   constructor(status, body) {
@@ -8,11 +9,25 @@ export class ApiError extends Error {
   }
 }
 
+export function getToken() {
+  return localStorage.getItem(TOKEN_STORAGE_KEY)
+}
+
+export function setToken(token) {
+  if (token) {
+    localStorage.setItem(TOKEN_STORAGE_KEY, token)
+  } else {
+    localStorage.removeItem(TOKEN_STORAGE_KEY)
+  }
+}
+
 async function request(path, options = {}) {
+  const token = getToken()
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   })
