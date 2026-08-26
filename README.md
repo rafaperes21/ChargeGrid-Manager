@@ -39,8 +39,38 @@ completa, por fase e com pontos de sincronização, em
 
 Pré-requisitos: Docker (Postgres), Python 3.11, Node 20.
 
+### Caminho rápido — um comando só
+
+```powershell
+.\scripts\dev.ps1        # Windows (PowerShell)
+```
+
+```bash
+./scripts/dev.sh         # Mac/Linux
+```
+
+Idempotente: cria os `.env` que faltarem, sobe o Postgres, cria/instala os venvs (Python 3.11)
+e `node_modules` que faltarem, roda migration+seed+gerador de histórico no backend, e abre os
+4 serviços (backend, IA, os dois frontends). Rodar de novo não duplica nada nem reinstala do
+zero.
+
+Flags úteis: `-Only backend,ia` (ou `--only backend,ia`) sobe só o que interessa para o vídeo
+da IA, sem os frontends; `-SkipSetup`/`--skip-setup` só abre os serviços já instalados;
+`-Recreate`/`--recreate` apaga e recria venv/`node_modules` (útil se o venv ficou com a versão
+errada de Python — veja a nota sobre Python 3.11 abaixo). No Windows, cada serviço abre em uma
+janela de terminal separada; no Mac/Linux, todos rodam nesta mesma janela com log prefixado
+por serviço, e `Ctrl+C` encerra todos de uma vez.
+
+O passo a passo abaixo é o que o script automatiza — use-o para entender o que está
+acontecendo, rodar um passo isolado, ou depurar algo que o script não cobriu.
+
+### Passo a passo manual
+
 > No Windows, troque `.venv/bin/` por `.venv/Scripts/` em todos os comandos abaixo
-> (PowerShell ou Git Bash — funciona nos dois, sem precisar ativar o venv).
+> (PowerShell ou Git Bash — funciona nos dois, sem precisar ativar o venv). O venv **precisa**
+> ser Python 3.11 especificamente (`py -3.11 -m venv .venv` no Windows,
+> `python3.11 -m venv .venv` no Mac/Linux) — versões mais novas quebram o Prophet/cmdstanpy da
+> IA.
 
 Copie o `.env.example` de cada serviço para `.env` antes de rodar (raiz, `backend/`,
 `frontend-cliente/`, `frontend-proprietario/`, `ia/`).
@@ -55,7 +85,7 @@ docker compose up -d
 
 ```bash
 cd backend
-python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+python3.11 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/alembic upgrade head
 .venv/bin/python -m app.db.seed          # popula 1 estabelecimento + 4 carregadores de demo
 .venv/bin/uvicorn app.main:app --reload  # sobe em :8000
@@ -82,7 +112,7 @@ demonstração (potência zerada, acima da nominal, offline, energia regredindo)
 
 ```bash
 cd ia
-python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+python3.11 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/uvicorn app.main:app --reload --port 8001
 ```
 
