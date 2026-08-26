@@ -1,6 +1,6 @@
 # M0 — Fundação do repositório
 
-Status: não iniciado
+Status: em andamento — falta só validar branch protection e um PR de teste real (ver checklist)
 Responsável: —
 Depende de: —
 Cobre as atividades 7 e 8 do desafio.
@@ -12,18 +12,25 @@ com ambiente reproduzível em qualquer máquina do time.
 
 ## Escopo
 
-- [ ] Decidir o nome do produto e propagar (`CLAUDE.md`, `README.md`, `package.json`)
-- [ ] Repositório GitHub criado, com a estrutura de pastas do `CLAUDE.md`
-- [ ] `README.md` na raiz: o que é o produto, como rodar, quem faz o quê
-- [ ] Branch `main` protegida; trabalho em branch por feature, merge via PR
-- [ ] `backend/`: projeto FastAPI mínimo com `/health`, `requirements.txt` (ou `pyproject.toml`)
-- [ ] `frontend-proprietario/` e `frontend-cliente/`: Vite + React + Tailwind, tela em branco que sobe
-- [ ] `ia/`: projeto FastAPI mínimo com `/health`
-- [ ] `docker-compose.yml` com Postgres para desenvolvimento local
-- [ ] `.env.example` em cada serviço, com todas as variáveis documentadas
-- [ ] CI no GitHub Actions: lint + testes do backend a cada PR
-- [ ] Desenhos das telas principais (Figma ou papel fotografado) commitados em `docs/`:
-      dashboard do proprietário e sessão em andamento do cliente, no mínimo
+- [x] Decidir o nome do produto e propagar (`CLAUDE.md`, `README.md`, `package.json`)
+- [x] Repositório GitHub criado, com a estrutura de pastas do `CLAUDE.md`
+- [x] `README.md` na raiz: o que é o produto, como rodar, quem faz o quê
+- [ ] Branch `main` protegida; trabalho em branch por feature, merge via PR — **não verificado
+      por aqui** (é config do GitHub, precisa confirmar em Settings → Branches); o fluxo
+      branch-por-feature + PR já está documentado em `guiabranch.md` e foi seguido no PR #1
+- [x] `backend/`: projeto FastAPI mínimo com `/health`, `requirements.txt` (ou `pyproject.toml`)
+      — foi além do M0, já entrega M1 inteiro (models, auth JWT/Google, CRUD)
+- [x] `frontend-proprietario/` e `frontend-cliente/`: Vite + React + Tailwind, tela em branco que sobe
+- [x] `ia/`: projeto FastAPI mínimo com `/health`
+- [x] `docker-compose.yml` com Postgres para desenvolvimento local — arquivo pronto; **não
+      validado localmente** (Docker Desktop não estava rodando nas máquinas usadas até agora)
+- [x] `.env.example` em cada serviço, com todas as variáveis documentadas
+- [x] CI no GitHub Actions: lint + testes do backend a cada PR — `.github/workflows/ci.yml`
+      cobre backend + ia + os dois frontends; falta confirmar que já rodou verde num PR real
+- [x] Desenhos das telas principais commitados em `docs/telas/` (wireframes de baixa
+      fidelidade, dashboard do proprietário e sessão do cliente) — e agora também um modelo de
+      alta fidelidade das 10 telas dos dois portais + mockup dos assistentes de IA, ver
+      `docs/telas/README.md`
 
 ## Plano de execução
 
@@ -59,11 +66,13 @@ não bloquear ninguém.
 
 ## Critérios de aceite
 
-- Qualquer pessoa do time clona, roda `docker compose up` + os comandos do README e tem
-  os quatro serviços de pé em menos de 10 minutos, sem perguntar nada a ninguém.
-- `GET /health` responde 200 no backend e no serviço de IA.
-- Um PR de teste dispara o CI e ele passa.
-- `.env` está no `.gitignore` e nenhum segredo foi commitado.
+- [ ] Qualquer pessoa do time clona, roda `docker compose up` + os comandos do README e tem
+  os quatro serviços de pé em menos de 10 minutos, sem perguntar nada a ninguém. — não validado
+  (Docker Desktop indisponível nas máquinas usadas até agora; `docker-compose.yml` está pronto)
+- [x] `GET /health` responde 200 no backend e no serviço de IA — testado, `pytest` verde nos dois.
+- [ ] Um PR de teste dispara o CI e ele passa — o workflow existe e cobre os 4 serviços; falta
+  confirmar uma execução verde real no GitHub Actions.
+- [x] `.env` está no `.gitignore` e nenhum segredo foi commitado.
 
 ## Armadilhas
 
