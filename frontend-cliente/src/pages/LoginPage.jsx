@@ -42,7 +42,7 @@ export function LoginPage() {
           </svg>
           <div>
             <h1 className="font-heading text-base font-bold text-ink">ChargeGrid-Manager</h1>
-            <p className="text-xs text-muted-2">Portal do proprietário</p>
+            <p className="text-xs text-muted-2">Oi! Entre para carregar seu carro</p>
           </div>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">

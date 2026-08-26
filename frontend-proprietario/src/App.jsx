@@ -3,14 +3,25 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { AuthProvider, useAuth } from './lib/auth'
 import { ChatPage } from './pages/ChatPage'
+import { DashboardPage } from './pages/DashboardPage'
+import { FilaProprietarioPage } from './pages/FilaProprietarioPage'
 import { LoginPage } from './pages/LoginPage'
+import { OnboardingPage } from './pages/OnboardingPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
+import { RelatoriosPage } from './pages/RelatoriosPage'
+import { TarifasPage } from './pages/TarifasPage'
+import { UsuariosPlanosPage } from './pages/UsuariosPlanosPage'
 import { routes } from './routes'
 
 const queryClient = new QueryClient()
 
-// So /assistente tem tela real por enquanto - o resto continua PlaceholderPage ate M4 sair.
 const PAGE_COMPONENTS = {
+  '/': DashboardPage,
+  '/tarifas': TarifasPage,
+  '/usuarios-planos': UsuariosPlanosPage,
+  '/fila': FilaProprietarioPage,
+  '/relatorios': RelatoriosPage,
+  '/onboarding': OnboardingPage,
   '/assistente': ChatPage,
 }
 
@@ -20,7 +31,7 @@ function RequireAuth({ children }) {
   if (!token) return <Navigate to="/login" replace />
   if (loadingEstablishment) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">
+      <div className="flex min-h-screen items-center justify-center text-sm text-muted">
         Carregando…
       </div>
     )
