@@ -1,6 +1,6 @@
 # M3 — Motor de tarifação e sessões
 
-Status: não iniciado
+Status: em andamento
 Responsável: —
 Depende de: M1, M2
 Skill: `.claude/skills/tarifacao-e-sessoes/`
@@ -13,25 +13,29 @@ prejuízo real ou cliente cobrado a mais. **É o milestone que mais precisa de t
 ## Escopo
 
 ### Tarifas
-- [ ] CRUD de `tariff_rules`: faixas pico / fora de pico / madrugada por dia da semana
-- [ ] Validação: faixas não se sobrepõem e cobrem 24 h; fallback documentado se houver buraco
-- [ ] Faixas que cruzam a meia-noite tratadas corretamente
+- [x] CRUD de `tariff_rules`: faixas pico / fora de pico / madrugada por dia da semana
+- [x] Validação: faixas não se sobrepõem e cobrem 24 h; fallback documentado se houver buraco
+- [x] Faixas que cruzam a meia-noite tratadas corretamente
 - [ ] Regras especiais: desconto por plano, minutos gratuitos condicionais
       (ex.: primeira meia hora grátis nos fins de semana)
-- [ ] Definição em horário local (`America/Sao_Paulo`), persistência em UTC
+- [x] Definição em horário local (`America/Sao_Paulo`), persistência em UTC
 
 ### Sessões
-- [ ] Máquina de estados `pending → active → finished | error`
+- [ ] Máquina de estados `pending → active → finished | error` — modelo `ChargingSession` existe
+      (com os campos de snapshot), mas não há `services/sessions.py` nem router; o próprio
+      `services/dashboard.py` documenta em comentário que receita/sessões ativas são sempre
+      `None` porque "o motor de tarifação (M3) não existe"
 - [ ] Abertura por RFID; timeout de 5 min sem potência → `error` sem cobrança
 - [ ] Acúmulo de kWh a partir das leituras do polling
 - [ ] Detecção de fim por potência zerada em N leituras consecutivas
 - [ ] Fechamento: aplica a ordem de cálculo da skill (bruto → promoção → desconto de plano →
-      franquia → valor final) e grava **snapshot** da tarifa aplicada
+      franquia → valor final) e grava **snapshot** da tarifa aplicada — não existe `pricing.py`
 - [ ] Geração de recibo digital
 
 ### Planos e fila
 - [ ] Assinatura, franquia em kWh, descontos de 15 % / 25 %
-- [ ] Fila: ordenação por prioridade de plano, depois ordem de chegada
+- [ ] Fila: ordenação por prioridade de plano, depois ordem de chegada — modelo `QueueEntry`
+      existe, sem `services/queue.py` nem router; telas de fila dos dois portais são placeholder
 - [ ] Reserva de 15 min ao liberar vaga; expirou → volta ao fim do próprio tier
 - [ ] Reserva antecipada de 15 min retira a vaga da oferta da fila
 

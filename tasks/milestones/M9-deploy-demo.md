@@ -1,6 +1,6 @@
 # M9 — Deploy, demo e documentação
 
-Status: não iniciado
+Status: em andamento
 Responsável: —
 Depende de: todos
 
@@ -12,8 +12,9 @@ não conta.
 ## Escopo
 
 ### Deploy
-- [ ] Backend + serviço de IA + Postgres no Railway
-- [ ] Os dois frontends na Vercel, apontando para o backend de produção
+- [ ] Backend + serviço de IA + Postgres no Railway — nenhum artefato de deploy encontrado
+      (sem `railway.json`/config equivalente no repo)
+- [ ] Os dois frontends na Vercel, apontando para o backend de produção — sem `vercel.json`
 - [ ] CORS configurado para os domínios reais
 - [ ] Variáveis de ambiente de produção (nenhuma chave no código, nenhuma chave no bundle)
 - [ ] Migrations rodadas em produção; seed de demo carregado
@@ -34,11 +35,11 @@ não conta.
 - [ ] Plano B gravado em vídeo, para o caso de a internet falhar
 
 ### Documentação
-- [ ] `README.md` completo: problema, solução, arquitetura, como rodar
-- [ ] `docs/arquitetura.md` com o diagrama do fluxo SEMS+ → polling → banco → portais
-- [ ] `docs/modelo-de-dados.md` com o diagrama ER
-- [ ] Seção honesta de limitações: API do HCA G2 indisponível, SEMS+ Pull-only, dados
-      simulados, preços pendentes de confirmação com a GoodWe
+- [x] `README.md` completo: problema, solução, arquitetura, como rodar
+- [x] `docs/arquitetura.md` com o diagrama do fluxo SEMS+ → polling → banco → portais
+- [x] `docs/modelo-de-dados.md` com o diagrama ER
+- [x] Seção honesta de limitações: API do HCA G2 indisponível, SEMS+ Pull-only, dados
+      simulados, preços pendentes de confirmação com a GoodWe (`README.md` §"Limitações conhecidas")
 - [ ] Slides da apresentação
 
 ## Plano de execução

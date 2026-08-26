@@ -1,6 +1,6 @@
 # M8 — Módulo de IA/ML
 
-Status: não iniciado
+Status: em andamento
 Responsável: —
 Depende de: M2, M3
 Skill: `.claude/skills/ml-previsao-e-anomalias/`
@@ -16,31 +16,37 @@ no dashboard custa mais caro que "ainda coletando dados".
 ## Escopo
 
 ### Previsão de demanda
-- [ ] Prophet como padrão (sazonalidade diária e semanal + feriados são a estrutura do dado)
-- [ ] Alvo: sessões (ou kWh) por hora, próximas 24–48 h, por estabelecimento
-- [ ] Regressores: hora, dia da semana, feriado nacional, tipo de estabelecimento
-- [ ] Mínimo de 4 semanas de histórico; abaixo disso, `insufficient_data`
-- [ ] Endpoint consumido pelo dashboard: mapa de calor hora × dia com intervalo de confiança
-- [ ] Rótulo em linguagem natural: "amanhã das 18h às 20h: alta demanda esperada"
-- [ ] Backtest com **corte temporal** (nunca split aleatório), MAE e MAPE por faixa horária
+- [x] Prophet como padrão (sazonalidade diária e semanal + feriados são a estrutura do dado)
+- [x] Alvo: sessões (ou kWh) por hora, próximas 24–48 h, por estabelecimento
+- [ ] Regressores: hora, dia da semana, feriado nacional, tipo de estabelecimento — Prophet
+      captura sazonalidade diária/semanal nativamente; não confirmado regressor explícito de
+      feriado nacional/tipo de estabelecimento
+- [x] Mínimo de 4 semanas de histórico; abaixo disso, `insufficient_data`
+      (`has_sufficient_history`)
+- [x] Endpoint consumido pelo dashboard: mapa de calor hora × dia (`build_heatmap`)
+- [x] Rótulo em linguagem natural (`label_peaks`)
+- [x] Backtest com **corte temporal** (nunca split aleatório), MAE e MAPE (`run_backtest`)
 
 ### Precificação dinâmica sugerida
-- [ ] Regra sobre a previsão: acima do p80 histórico → sugere aumento; abaixo do p20 → redução
+- [ ] Regra sobre a previsão: acima do p80 histórico → sugere aumento; abaixo do p20 → redução —
+      não implementado (não existe `services/pricing_suggestion.py` nem equivalente em `/ia`)
 - [ ] Limites `max_increase_pct` / `max_decrease_pct` configurados pelo proprietário
 - [ ] **Padrão é sugerir, não aplicar.** Aplicação automática só dentro dos limites configurados
 - [ ] Log de auditoria de toda alteração automática, com o motivo
 - [ ] Nunca altera tarifa de sessão já iniciada
 
 ### Detecção de anomalias
-- [ ] Camada de regras determinísticas, sempre ativa (implementar primeiro — pega a maioria):
-      potência 0 por > 30 min com veículo conectado · potência acima da nominal ·
-      offline por > 3 ciclos · energia acumulada regredindo
-- [ ] Camada estatística: Isolation Forest ou z-score em janela móvel, por carregador e horário
-- [ ] Alerta no dashboard com severidade **e a leitura que disparou** anexada
+- [x] Camada de regras determinísticas, sempre ativa: potência 0 por > 30 min com veículo
+      conectado · potência acima da nominal · offline por > 3 ciclos · energia acumulada
+      regredindo (`ia/app/services/anomalies.py`)
+- [ ] Camada estatística: Isolation Forest ou z-score em janela móvel, por carregador e horário —
+      não implementada; `ia/requirements.txt` não tem scikit-learn
+- [x] Alerta no dashboard com severidade **e a leitura que disparou** anexada
 - [ ] Botão de "falso positivo" com o feedback persistido — é o único rótulo real disponível
 
 ### Segmentação de clientes
-- [ ] K-Means com `StandardScaler`; k escolhido por cotovelo + silhouette e depois **fixado**
+- [ ] K-Means com `StandardScaler`; k escolhido por cotovelo + silhouette e depois **fixado** —
+      não implementado (nenhum uso de scikit-learn/KMeans no projeto)
 - [ ] Features: hora média de início, desvio, sessões/mês, kWh médio, duração média,
       % em fim de semana, plano ativo
 - [ ] Clusters **nomeados**: `carregador_noturno`, `usuario_de_pico`, `cliente_de_passagem`,
@@ -48,12 +54,14 @@ no dashboard custa mais caro que "ainda coletando dados".
 - [ ] Filtro por segmento no portal do proprietário, para promoção direcionada
 
 ### Engenharia
-- [ ] Modelos em `/ia/models/`, fora do git
-- [ ] Retreino agendado: previsão diária, segmentação semanal. Nunca por requisição
+- [ ] Modelos em `/ia/models/`, fora do git — pasta existe (`ia/models/.gitkeep`), sem uso ainda
+      (Prophet não é serializado/persistido)
+- [ ] Retreino agendado: previsão diária, segmentação semanal. Nunca por requisição — hoje o
+      treino roda sob demanda com cache em memória (`_CacheEntry`), não em agenda
 - [ ] Todo endpoint devolve `model_version` e `trained_at`
-- [ ] Cache das previsões — o dashboard não dispara treino
-- [ ] **Fallback obrigatório:** modelo falhou → backend mostra média histórica simples e diz
-      que é média histórica. O portal não quebra porque o Prophet não convergiu
+- [x] Cache das previsões — o dashboard não dispara treino (`train_or_get_cached_model`)
+- [x] **Fallback obrigatório:** modelo falhou → backend mostra média histórica simples e diz
+      que é média histórica (`historical_average_fallback`)
 
 ## Plano de execução
 

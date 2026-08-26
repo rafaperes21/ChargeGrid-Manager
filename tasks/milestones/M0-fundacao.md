@@ -1,6 +1,6 @@
 # M0 — Fundação do repositório
 
-Status: não iniciado
+Status: concluído
 Responsável: —
 Depende de: —
 Cobre as atividades 7 e 8 do desafio.
@@ -12,17 +12,18 @@ com ambiente reproduzível em qualquer máquina do time.
 
 ## Escopo
 
-- [ ] Decidir o nome do produto e propagar (`CLAUDE.md`, `README.md`, `package.json`)
-- [ ] Repositório GitHub criado, com a estrutura de pastas do `CLAUDE.md`
-- [ ] `README.md` na raiz: o que é o produto, como rodar, quem faz o quê
+- [x] Decidir o nome do produto e propagar (`CLAUDE.md`, `README.md`, `package.json`)
+- [x] Repositório GitHub criado, com a estrutura de pastas do `CLAUDE.md`
+- [x] `README.md` na raiz: o que é o produto, como rodar, quem faz o quê
 - [ ] Branch `main` protegida; trabalho em branch por feature, merge via PR
-- [ ] `backend/`: projeto FastAPI mínimo com `/health`, `requirements.txt` (ou `pyproject.toml`)
-- [ ] `frontend-proprietario/` e `frontend-cliente/`: Vite + React + Tailwind, tela em branco que sobe
-- [ ] `ia/`: projeto FastAPI mínimo com `/health`
-- [ ] `docker-compose.yml` com Postgres para desenvolvimento local
-- [ ] `.env.example` em cada serviço, com todas as variáveis documentadas
-- [ ] CI no GitHub Actions: lint + testes do backend a cada PR
-- [ ] Desenhos das telas principais (Figma ou papel fotografado) commitados em `docs/`:
+      (fluxo de PR está em uso; proteção de branch no GitHub ainda não foi configurada — `GET /branches/main/protection` retorna 404)
+- [x] `backend/`: projeto FastAPI mínimo com `/health`, `requirements.txt` (ou `pyproject.toml`)
+- [x] `frontend-proprietario/` e `frontend-cliente/`: Vite + React + Tailwind, tela em branco que sobe
+- [x] `ia/`: projeto FastAPI mínimo com `/health`
+- [x] `docker-compose.yml` com Postgres para desenvolvimento local
+- [x] `.env.example` em cada serviço, com todas as variáveis documentadas
+- [x] CI no GitHub Actions: lint + testes do backend a cada PR
+- [x] Desenhos das telas principais (Figma ou papel fotografado) commitados em `docs/`:
       dashboard do proprietário e sessão em andamento do cliente, no mínimo
 
 ## Plano de execução

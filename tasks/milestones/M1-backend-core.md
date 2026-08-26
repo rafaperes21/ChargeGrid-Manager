@@ -1,6 +1,6 @@
 # M1 — Modelo de dados e backend core
 
-Status: não iniciado
+Status: concluído
 Responsável: —
 Depende de: M0
 
@@ -28,16 +28,16 @@ alerts              anomalias e avisos do dashboard
 
 ## Escopo
 
-- [ ] Modelos SQLAlchemy + migrations Alembic para tudo acima
-- [ ] `Decimal`/`NUMERIC(12,4)` para dinheiro, `TIMESTAMPTZ` UTC para tempo (ver `CLAUDE.md`)
-- [ ] Índices: `charger_readings(charger_id, timestamp)`, `charging_sessions(user_id, started_at)`,
+- [x] Modelos SQLAlchemy + migrations Alembic para tudo acima
+- [x] `Decimal`/`NUMERIC(12,4)` para dinheiro, `TIMESTAMPTZ` UTC para tempo (ver `CLAUDE.md`)
+- [x] Índices: `charger_readings(charger_id, timestamp)`, `charging_sessions(user_id, started_at)`,
       `charging_sessions(establishment_id, started_at)` — sem isso os relatórios travam
-- [ ] Auth: JWT, login por e-mail/senha + Google OAuth
-- [ ] Dois papéis: `owner` e `customer`. Dependência do FastAPI que barra acesso cruzado —
+- [x] Auth: JWT, login por e-mail/senha + Google OAuth
+- [x] Dois papéis: `owner` e `customer`. Dependência do FastAPI que barra acesso cruzado —
       um cliente **nunca** enxerga dado de outro cliente nem financeiro do estabelecimento
-- [ ] CRUD de estabelecimentos, carregadores, usuários, planos
-- [ ] Seed script com dados de demo coerentes
-- [ ] OpenAPI publicado em `/docs` e avisado ao time — é o contrato com os frontends
+- [x] CRUD de estabelecimentos, carregadores, usuários, planos
+- [x] Seed script com dados de demo coerentes
+- [x] OpenAPI publicado em `/docs` e avisado ao time — é o contrato com os frontends
 
 ## Plano de execução
 

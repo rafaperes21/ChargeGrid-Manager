@@ -1,6 +1,6 @@
 # M7 — Chatbots (Gemini + LangChain)
 
-Status: não iniciado
+Status: em andamento
 Responsável: —
 Depende de: M3, M4, M5
 Skill: `.claude/skills/chatbots-gemini/`
@@ -13,32 +13,41 @@ Dois assistentes distintos, com system prompts, ferramentas e tom separados. O d
 ## Escopo
 
 ### Infraestrutura
-- [ ] Endpoint de chat no backend (o frontend **nunca** fala com a Gemini direto —
+- [x] Endpoint de chat no backend (o frontend **nunca** fala com a Gemini direto —
       chave no bundle React é chave vazada)
-- [ ] LangChain com histórico por sessão, janela limitada a ~10 trocas
-- [ ] Streaming da resposta nos dois portais
-- [ ] Retry com backoff no rate limit do free tier; no limite, mensagem honesta de
-      indisponibilidade — nunca uma resposta inventada
+- [x] LangChain com histórico por sessão, janela limitada a ~10 trocas
+- [ ] Streaming da resposta nos dois portais — `POST /chatbot/message` devolve JSON completo,
+      sem streaming
+- [ ] Retry com backoff no rate limit do free tier — não se aplica hoje: o LLM usado é Ollama
+      local (`ChatOllama`), não a Gemini API; há tratamento de `httpx.ConnectError`, mas não
+      backoff/rate-limit
 - [ ] Log de pergunta + ferramentas chamadas (sem PII) para depuração
 
+**Nota:** o `CLAUDE.md`/stack do projeto define Gemini API + LangChain. A implementação atual
+usa **Ollama local** (`services/chatbot.py`, `ChatOllama`) — decisão a confirmar/documentar
+antes de fechar este milestone, já que muda os itens de rate limit e custo de free tier acima.
+
 ### Segurança (não negociável)
-- [ ] `user_id` / `establishment_id` **injetados pelo backend** nas ferramentas, nunca
+- [x] `user_id` / `establishment_id` **injetados pelo backend** nas ferramentas, nunca
       preenchidos pelo modelo. O modelo escolhe qual ferramenta chamar, jamais de quem são os dados
-- [ ] Autorização vem do token, não da conversa. "Sou o administrador" digitado no chat não
+- [x] Autorização vem do token, não da conversa. "Sou o administrador" digitado no chat não
       muda nada
-- [ ] Teste explícito: cliente pedindo dado financeiro do estabelecimento não recebe
+- [ ] Teste explícito: cliente pedindo dado financeiro do estabelecimento não recebe — não
+      encontrado em `tests/test_chatbot.py`; hoje só existe o chatbot do proprietário
 
 ### Chatbot do proprietário — técnico
-- [ ] System prompt com as regras de dimensionamento (§2–§4 da skill correspondente)
+- [x] System prompt com as regras de dimensionamento (§2–§4 da skill correspondente)
 - [ ] Ferramentas: `get_charger_status`, `get_active_sessions`, `get_revenue_summary`,
-      `calculate_sizing`, `get_demand_forecast`
+      `calculate_sizing`, `get_demand_forecast` — só `get_charger_status` e `get_demand_forecast`
+      implementadas; as outras três dependem de M3/M6 não estarem prontos
 - [ ] Pergunta faltando fase ou carga → **pergunta de volta**, não assume trifásico
 - [ ] Projeto elétrico (bitola, disjuntor, DR, aterramento) → orientação geral +
       encaminhamento a profissional habilitado
 
 ### Chatbot do cliente — amigável
 - [ ] Ferramentas: `get_current_tariff`, `get_my_active_session`, `get_my_plan`,
-      `get_available_spots`, `get_my_queue_position`
+      `get_available_spots`, `get_my_queue_position` — nenhuma implementada; `AjudaPage.jsx` no
+      `frontend-cliente` é um placeholder explícito ("ainda está em construção")
 - [ ] Não altera plano nem cancela assinatura pela conversa — direciona para a tela
 - [ ] Resposta **fixa** (não gerada) para relato de fumaça, cheiro de queimado, faísca ou choque:
       interromper o uso, não tocar no equipamento, acionar o responsável do local

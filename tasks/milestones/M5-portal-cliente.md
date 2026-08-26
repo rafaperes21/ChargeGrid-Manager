@@ -1,6 +1,6 @@
 # M5 — Portal do Cliente
 
-Status: não iniciado
+Status: em andamento
 Responsável: —
 Depende de: M1, M3
 Skill: `.claude/skills/ui-dois-portais/`
@@ -12,7 +12,8 @@ Mobile-first. Usado em pé, no estacionamento, com pressa. Uma informação prin
 ## Escopo
 
 ### Cadastro e autenticação
-- [ ] Login por e-mail/senha e Google
+- [ ] Login por e-mail/senha e Google — só e-mail/senha implementado, sem Google no
+      `frontend-cliente` (o Google OAuth existe no backend e no portal do proprietário)
 - [ ] Cadastro do modelo do veículo (alimenta estimativa de % de bateria e tempo restante)
 - [ ] Cadastro de método de pagamento
 - [ ] Geração do RFID virtual (QR code / número de cartão) para o proprietário cadastrar
@@ -20,6 +21,8 @@ Mobile-first. Usado em pé, no estacionamento, com pressa. Uma informação prin
 
 ### Sessão em andamento (prioridade máxima — tela mais vista do produto)
 - [ ] kWh carregados, % estimado da bateria, tempo estimado restante, valor acumulado, tarifa vigente
+      — `SessaoPage.jsx` é placeholder explícito ("depende de sessões reais do motor de
+      tarifação (M3)"), sem chamada à API
 - [ ] Hierarquia visual: valor e tempo restante grandes; kWh e tarifa secundários
 - [ ] Sem modelo de veículo cadastrado → mostra kWh e **omite** o % de bateria
 - [ ] Barra de progresso interpolada localmente; kWh e R$ só com dado confirmado
@@ -27,20 +30,23 @@ Mobile-first. Usado em pé, no estacionamento, com pressa. Uma informação prin
 
 ### Planos de assinatura
 - [ ] Comparativo avulso / mensal (15 %, fila prioritária) / trimestral (25 %, prioridade máxima)
+      — não há tela equivalente no portal do cliente
 - [ ] Contratação e troca de plano confirmadas na interface (nunca pelo chat)
 
 ### Mapa de disponibilidade
-- [ ] Vagas livres em tempo real e potência disponível de cada carregador
+- [x] Vagas livres em tempo real e potência disponível de cada carregador (`MapaPage.jsx`
+      consome a API real)
 - [ ] Reserva com 15 min de antecedência
 - [ ] Link de navegação via Google Maps
 
 ### Fila inteligente
-- [ ] Entrar na fila quando tudo estiver ocupado
+- [ ] Entrar na fila quando tudo estiver ocupado — `FilaPage.jsx` não tem chamada à API (depende
+      de M3)
 - [ ] Posição em tempo real, grande e acima da dobra
 - [ ] Notificação quando a vaga liberar, com a janela de 15 min visível em contagem regressiva
 
 ### Histórico e sustentabilidade
-- [ ] Lista de sessões: data, local, duração, energia, valor
+- [ ] Lista de sessões: data, local, duração, energia, valor — `HistoricoPage.jsx` é placeholder
 - [ ] Recibo digital para reembolso corporativo
 - [ ] Gráfico de consumo mensal
 - [ ] Relatório mensal de sustentabilidade: kWh → km equivalentes → kg de CO₂ evitados,
