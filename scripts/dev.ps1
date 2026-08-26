@@ -109,7 +109,11 @@ function Wait-Postgres {
     Write-Host "  Aguardando Postgres ficar saudavel..."
     $maxAttempts = 30
     for ($i = 1; $i -le $maxAttempts; $i++) {
-        docker compose exec -T postgres pg_isready -U $postgresUser *> $null
+        # So suprime stdout - redirecionar stderr de comando nativo no PS 5.1 embrulha cada
+        # linha num NativeCommandError e, com $ErrorActionPreference='Stop', aborta o script
+        # mesmo quando o comando teve sucesso (ex.: aviso inofensivo do docker compose sobre
+        # nome de projeto). Deixar stderr passar direto pro console e' seguro aqui.
+        docker compose exec -T postgres pg_isready -U $postgresUser 1> $null
         if ($LASTEXITCODE -eq 0) {
             Write-Host "  Postgres pronto."
             return
