@@ -16,8 +16,10 @@ from app.models.user import User
 def run() -> None:
     db = SessionLocal()
     try:
-        if db.query(Establishment).first() is not None:
+        existing = db.query(Establishment).first()
+        if existing is not None:
             print("Seed ja aplicado - abortando para nao duplicar dados.")
+            print(f"Establishment id: {existing.id}")
             return
 
         owner = User(
@@ -84,6 +86,7 @@ def run() -> None:
 
         db.commit()
         print("Seed aplicado: 1 estabelecimento, 4 carregadores, 2 planos, 1 owner, 1 customer.")
+        print(f"Establishment id: {establishment.id}")
     finally:
         db.close()
 

@@ -36,7 +36,9 @@ class Charger(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
 class ChargerReading(Base):
     """Serie temporal do polling do SEMS+. PK inteira (nao UUID): volume alto, sem necessidade
-    de opacidade de id, e chave sequencial e mais barata para o indice principal."""
+    de opacidade de id, e chave sequencial e mais barata para o indice principal.
+
+    Campos alinhados ao contrato `ChargerReading` da skill `integracao-sems-simulador`."""
 
     __tablename__ = "charger_readings"
     __table_args__ = (Index("ix_charger_readings_charger_id_timestamp", "charger_id", "timestamp"),)
@@ -46,5 +48,7 @@ class ChargerReading(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     power_kw: Mapped[Decimal] = mapped_column(Numeric(12, 3))
     status: Mapped[ChargerStatus] = mapped_column(charger_status_type)
+    total_energy_kwh: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=Decimal("0"))
+    error_code: Mapped[str | None] = mapped_column(String(50), default=None)
 
     charger: Mapped["Charger"] = relationship(back_populates="readings")
