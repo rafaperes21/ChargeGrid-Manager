@@ -27,10 +27,10 @@ ele entra sem saber o que comprar e sai com um orçamento para levar à GoodWe.
       assumida fixa (`_TARIFA_ASSUMIDA_PARA_PAYBACK`), já que `preco_unitario` não veio da GoodWe
 - [ ] Premissas (kWh médio, sessões/dia, custo da energia) visíveis e **editáveis** — não
       encontrado na tela; endpoint não aceita essas premissas como parâmetro
-- [ ] Geração do PDF do orçamento — endpoint só devolve JSON; nenhuma lib de PDF
-      (reportlab/weasyprint) no `requirements.txt`
-- [ ] Rodapé obrigatório: estimativa preliminar, não substitui projeto elétrico assinado por
-      profissional habilitado (NBR 5410 / NBR 17019) — depende do PDF acima
+- [x] Geração do PDF do orçamento — gerado no cliente com `jspdf`
+      (`OnboardingPage.jsx`, função `downloadPdf`), não no backend
+- [x] Rodapé obrigatório: estimativa preliminar, não substitui projeto elétrico assinado por
+      profissional habilitado (NBR 5410 / NBR 17019) — presente no PDF gerado
 - [ ] Ao concluir, criar o estabelecimento e os carregadores já configurados — o endpoint
       `/onboarding/dimensionamento` apenas calcula e retorna, não persiste nada
 
