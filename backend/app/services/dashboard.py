@@ -72,7 +72,7 @@ def _active_sessions_count(db: Session, establishment_id) -> int:
     )
 
 
-def _latest_reading(db: Session, charger_id) -> ChargerReading | None:
+def latest_reading(db: Session, charger_id) -> ChargerReading | None:
     return (
         db.query(ChargerReading)
         .filter(ChargerReading.charger_id == charger_id)
@@ -117,7 +117,7 @@ def get_chargers_status(db: Session, establishment_id) -> list[ChargerDashboardI
 
     items = []
     for charger in chargers:
-        reading = _latest_reading(db, charger.id)
+        reading = latest_reading(db, charger.id)
         items.append(
             ChargerDashboardItem(
                 id=charger.id,

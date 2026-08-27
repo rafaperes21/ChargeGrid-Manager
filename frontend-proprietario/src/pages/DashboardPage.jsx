@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { apiClient } from '../lib/apiClient'
 import { useAuth } from '../lib/auth'
@@ -179,10 +180,15 @@ function DashboardContent({ data, powerPct, overThreshold }) {
         <div>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-heading text-base font-semibold text-ink">Mapa de vagas</h2>
+            <p className="text-[11px] text-muted">clique num carregador pra ver o detalhe</p>
           </div>
           <div className="grid grid-cols-4 gap-3 lg:grid-cols-8">
             {data.chargers.map((charger) => (
-              <div key={charger.id} className="rounded-2xl border border-hairline bg-surface p-3.5">
+              <Link
+                key={charger.id}
+                to={`/carregadores/${charger.id}`}
+                className="rounded-2xl border border-hairline bg-surface p-3.5 transition-shadow hover:shadow-[0_4px_16px_rgba(14,10,26,0.08)]"
+              >
                 <p className="mb-2 font-mono text-[13px] font-semibold text-ink">{charger.spot_label}</p>
                 <StatusBadge status={charger.status} />
                 {charger.latest_power_kw !== null && Number(charger.latest_power_kw) > 0 && (
@@ -195,7 +201,7 @@ function DashboardContent({ data, powerPct, overThreshold }) {
                     </p>
                   </>
                 )}
-              </div>
+              </Link>
             ))}
             {data.chargers.length === 0 && (
               <p className="col-span-full text-sm text-muted">Nenhum carregador cadastrado.</p>

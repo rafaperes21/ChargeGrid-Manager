@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { AuthProvider, useAuth } from './lib/auth'
+import { ChargerDetalhePage } from './pages/ChargerDetalhePage'
 import { ChatPage } from './pages/ChatPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { FilaProprietarioPage } from './pages/FilaProprietarioPage'
@@ -65,6 +66,7 @@ function App() {
                   />
                 )
               })}
+              <Route path="/carregadores/:chargerId" element={<ChargerDetalhePage />} />
             </Route>
           </Routes>
         </BrowserRouter>
