@@ -3,8 +3,10 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
+import { FaqAccordion } from '../components/ui/FaqAccordion'
 import { apiClient } from '../lib/apiClient'
 import { useAuth } from '../lib/auth'
+import { PUBLIC_FAQ, SUPPORT_CONTACT } from '../lib/faq'
 import { formatCurrency, formatEnergyKwh } from '../lib/format'
 
 // Tela de impacto (Prioridade 5, Tarefa 5.3) - antes do login, sem autenticacao
@@ -115,6 +117,18 @@ export function LoginPage() {
           </Button>
         </form>
       </Card>
+
+      <div className="mt-8 w-full max-w-sm">
+        <h2 className="mb-3 text-center text-xs font-bold uppercase tracking-wide text-muted">
+          Perguntas frequentes
+        </h2>
+        <FaqAccordion items={PUBLIC_FAQ} />
+        <p className="mt-4 text-center text-[11px] text-muted-2">
+          Não achou o que procurava? {SUPPORT_CONTACT.email} · {SUPPORT_CONTACT.phone}
+          <br />
+          <span className="text-muted-3">({SUPPORT_CONTACT.note})</span>
+        </p>
+      </div>
     </div>
   )
 }

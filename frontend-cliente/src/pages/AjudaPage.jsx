@@ -1,3 +1,6 @@
+import { FaqAccordion } from '../components/ui/FaqAccordion'
+import { HELP_FAQ, SUPPORT_CONTACT } from '../lib/faq'
+
 export function AjudaPage() {
   return (
     <div className="flex flex-1 flex-col">
@@ -18,12 +21,25 @@ export function AjudaPage() {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3.5 p-5">
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-5">
         <div className="max-w-[85%] self-start rounded-[16px_16px_16px_4px] bg-[#F7F5FB] px-[15px] py-[11px]">
           <p className="text-[13px] leading-relaxed text-ink">
             Esse assistente ainda está em construção — hoje só o assistente técnico do
             proprietário tem ferramentas reais conectadas. Em breve dá para perguntar sobre sua
-            sessão, tarifa e fila por aqui também.
+            sessão, tarifa e fila por aqui também. Enquanto isso, veja as perguntas mais comuns
+            abaixo.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">
+            Perguntas frequentes
+          </h2>
+          <FaqAccordion items={HELP_FAQ} />
+          <p className="mt-3 text-[11px] text-muted-2">
+            Não resolveu? Fale com o estabelecimento onde você carrega — {SUPPORT_CONTACT.email}
+            <br />
+            <span className="text-muted-3">({SUPPORT_CONTACT.note})</span>
           </p>
         </div>
       </div>

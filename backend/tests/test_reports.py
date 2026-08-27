@@ -6,7 +6,7 @@ from app.models.enums import ChargerModel, ChargerStatus, ChargingSessionStatus,
 from app.models.establishment import Establishment
 from app.models.session import ChargingSession
 from app.models.user import User
-from app.services.reports import get_report
+from app.services.reports import get_charger_occupancy, get_report
 
 
 def _register_and_login(client, email: str, role: str) -> str:
@@ -138,3 +138,89 @@ def test_reports_endpoint_rejects_inverted_range(client):
         headers={"Authorization": f"Bearer {owner_token}"},
     )
     assert response.status_code == 400
+
+
+def _timed_session(establishment, charger, customer, started_at, ended_at, amount_due, energy_kwh):
+    return ChargingSession(
+        user_id=customer.id,
+        charger_id=charger.id,
+        establishment_id=establishment.id,
+        status=ChargingSessionStatus.finished,
+        started_at=started_at,
+        ended_at=ended_at,
+        energy_kwh=energy_kwh,
+        amount_due=amount_due,
+    )
+
+
+def test_get_charger_occupancy_scopes_totals_per_charger_and_period(db_session):
+    establishment, charger_a, customer = _setup(db_session)
+    charger_b = Charger(
+        establishment_id=establishment.id,
+        sems_serial="HCA-G2-REL-002",
+        model=ChargerModel.gw11k,
+        spot_label="Vaga 02",
+        status=ChargerStatus.livre,
+        nominal_power_kw=Decimal("11.000"),
+    )
+    db_session.add(charger_b)
+    db_session.commit()
+
+    db_session.add_all(
+        [
+            _timed_session(
+                establishment, charger_a, customer,
+                datetime(2026, 6, 10, 18, 0, tzinfo=UTC), datetime(2026, 6, 10, 20, 0, tzinfo=UTC),
+                Decimal("10.0000"), Decimal("5.000"),
+            ),
+            _timed_session(
+                establishment, charger_a, customer,
+                datetime(2026, 6, 12, 18, 0, tzinfo=UTC), datetime(2026, 6, 12, 19, 30, tzinfo=UTC),
+                Decimal("8.0000"), Decimal("4.000"),
+            ),
+            _timed_session(
+                establishment, charger_b, customer,
+                datetime(2026, 6, 11, 18, 0, tzinfo=UTC), datetime(2026, 6, 11, 19, 0, tzinfo=UTC),
+                Decimal("6.0000"), Decimal("3.000"),
+            ),
+            # fora do periodo pedido - nao pode contar.
+            _timed_session(
+                establishment, charger_a, customer,
+                datetime(2026, 7, 1, 18, 0, tzinfo=UTC), datetime(2026, 7, 1, 19, 0, tzinfo=UTC),
+                Decimal("999.0000"), Decimal("50.000"),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    result = get_charger_occupancy(
+        db_session, establishment.id, date(2026, 6, 1), date(2026, 6, 30)
+    )
+
+    by_label = {row.spot_label: row for row in result.chargers}
+    assert by_label["Vaga 01"].sessions_count == 2
+    assert by_label["Vaga 01"].revenue == Decimal("18.0000")
+    assert by_label["Vaga 01"].energy_kwh == Decimal("9.000")
+    assert by_label["Vaga 01"].hours_charged == Decimal("3.50")
+    assert by_label["Vaga 02"].sessions_count == 1
+    assert by_label["Vaga 02"].revenue == Decimal("6.0000")
+
+
+def test_get_charger_occupancy_includes_chargers_with_no_sessions(db_session):
+    establishment, charger, _customer = _setup(db_session)
+    result = get_charger_occupancy(
+        db_session, establishment.id, date(2026, 6, 1), date(2026, 6, 30)
+    )
+    assert len(result.chargers) == 1
+    assert result.chargers[0].charger_id == charger.id
+    assert result.chargers[0].sessions_count == 0
+    assert result.chargers[0].revenue == Decimal("0.0000")
+
+
+def test_charger_occupancy_endpoint_requires_owner(client):
+    customer_token = _register_and_login(client, "cliente-occ-api@teste.com", "customer")
+    response = client.get(
+        "/establishments/00000000-0000-0000-0000-000000000000/chargers-occupancy",
+        headers={"Authorization": f"Bearer {customer_token}"},
+    )
+    assert response.status_code == 403
