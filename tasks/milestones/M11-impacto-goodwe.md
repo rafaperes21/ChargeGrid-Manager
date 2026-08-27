@@ -60,15 +60,56 @@ pequena, a tela mostra pequeno mesmo — ser honesto sobre a escala em vez de fo
       `dono@chargegrid.demo`: 112 leituras reais nas últimas 24h, uptime 100%, path SVG sem
       `NaN`, tabela e toggle funcionando.
 
+- [x] **Extra — FAQ + histórico de demo "real e possível" + ocupação por vaga**, adicionado
+      em 27/08/2026, mesmo pedido de "visão de mercado e venda":
+      - **FAQ estático** em 3 lugares (`lib/faq.js` + `components/ui/FaqAccordion.jsx`,
+        duplicados nos dois portais, mesmo padrão de `motion.js`): landing pública nos dois
+        `LoginPage.jsx` (antes do login), `ConfiguracoesPage.jsx` novo no proprietário (rota
+        `/configuracoes`, ideia que já estava registrada como pendente), e fallback abaixo do
+        chatbot em `AjudaPage.jsx` do cliente. **Contato ainda não existe de verdade** -
+        `SUPPORT_CONTACT` é um placeholder fixo (`contato@chargegrid-manager.com`, telefone
+        fictício) rotulado "(em breve)" em toda tela onde aparece - não é um canal
+        operacional, só reserva o espaço visual até existir um de verdade.
+      - **Histórico de demonstração "real e possível"**: `backend/app/db/seed_demo_history.py`
+        novo (rodar depois do `seed.py`), 4 clientes novos no Estacionamento Central com
+        sessões dos últimos 30 dias. Os horários/durações/energias por sessão são
+        *inspirados* no padrão real de um registro de carregamento do HCA G2 da FIAP (NS
+        57000HPA247L0002, 29/07-27/08/2026, 158,90 kWh em 18 sessões, PDF fornecido pelo
+        usuário) - resample com jitter determinístico por cliente, **não são sessões de
+        clientes reais**. Cada sessão passa pelo motor de tarifação de verdade
+        (`calculate_session_amount` + `_resolve_plan_context` reaproveitados de
+        `services/sessions.py`, nunca um valor calculado à mão) - inclusive uma cliente
+        (Marina Alves) assinante do plano Mensal, pra mostrar desconto+franquia batendo
+        certo nos relatórios. Precisou criar a `TariffRule` que faltava no Estacionamento
+        Central (mesma tarifa flat R$2,00/kWh já usada nos outros estabelecimentos de demo -
+        sem isso as sessões fechariam como `error`). Também faz backfill de `ChargerReading`
+        na janela de cada sessão (perfil trapezoidal simples, não é telemetria real) pra
+        curva de potência da tela de detalhe do carregador ter semanas de histórico. Marcado
+        como **PROVISÓRIO** na docstring do próprio arquivo e aqui - trocar por dado de
+        produção assim que houver clientes reais.
+      - **Ocupação por vaga**: `GET /establishments/{id}/chargers-occupancy` novo
+        (`services/reports.py::get_charger_occupancy`) - uma linha por carregador (sessões,
+        energia, receita, horas carregadas) no período, sempre a partir de sessão `finished`
+        real. Gráfico de barras novo em `RelatoriosPage.jsx` (cor única da marca - é uma
+        série só atravessando categorias/vagas, não identidades diferentes, skill `dataviz`),
+        com rótulo direto de receita por vaga (poucas barras, sem necessidade de legenda).
+      - **Seletor de janela (24h/7 dias/30 dias)** em `ChargerDetalhePage.jsx` - com o
+        histórico de semanas do backfill acima, 24h fixo só mostraria uma fatia fina na
+        maior parte do tempo.
+
 ## Testes
 
 `test_fleet.py` (serviço, com IA mockada), `test_fleet_api.py` (autorização: overview é
-owner-only e exige token, impact é público) e `test_charger_detail.py` (uptime `None` vs
-fração, janela de leituras, sessões escopadas ao carregador certo, autorização) - 176 testes
-backend passando no total. Verificado ao vivo nos dois portais: hero de impacto na tela de
-login com dado real da base de demo (4 estabelecimentos, ~16.500 kWh, R$ 33 de receita),
-painel de frota com os 6 cards e a sugestão de cross-sell calculada certa (53% = 40kW/75kW do
-Estacionamento Central), tela de detalhe do carregador com dado real do polling.
+owner-only e exige token, impact é público), `test_charger_detail.py` (uptime `None` vs
+fração, janela de leituras, sessões escopadas ao carregador certo, autorização) e
+`test_reports.py` (ocupação por vaga: totais corretos por carregador/período, carregador sem
+sessão aparece zerado, autorização) - 179 testes backend passando no total. Verificado ao
+vivo nos dois portais: hero de impacto na tela de login agora com ~292 mil kWh/R$452 de
+receita (efeito colateral bom do histórico de demo novo), FAQ expandindo nos 3 lugares,
+`Configurações` no menu lateral, relatório com 29 sessões/R$374 no mês e gráfico de ocupação
+por vaga com valores reais, histórico do cliente Marina Alves com recibo decompondo
+bruto→desconto do plano→total batendo com o cálculo real (R$13,34 → -R$2,00 → R$11,34),
+seletor 7 dias trazendo 2800 leituras sem `NaN` no path do SVG.
 
 ## Armadilhas
 

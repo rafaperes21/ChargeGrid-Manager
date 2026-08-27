@@ -10,4 +10,5 @@ export const routes = [
   { path: '/frota', title: 'Visão de frota' },
   { path: '/onboarding', title: 'Onboarding' },
   { path: '/assistente', title: 'Assistente' },
+  { path: '/configuracoes', title: 'Configurações' },
 ]

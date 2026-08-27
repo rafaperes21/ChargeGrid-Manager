@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { PowerCurveChart } from '../components/charts/PowerCurveChart'
 import { Skeleton } from '../components/ui/Skeleton'
@@ -14,14 +14,23 @@ import {
 } from '../lib/format'
 import { animateNumber, gsap, MICRO, prefersReducedMotion, TRANSITION, useGSAP } from '../lib/motion'
 
-const WINDOW_HOURS = 24
+const DEFAULT_WINDOW_HOURS = 24
+
+// Presets de janela pro grafico de curva de potencia - a demo tem historico de semanas
+// (backfill de ChargerReading a partir das sessoes, ver seed_demo_history.py), 24h sozinho
+// mostraria so uma fatia fina na maior parte do tempo.
+const WINDOW_PRESETS = [
+  { label: '24h', hours: 24 },
+  { label: '7 dias', hours: 24 * 7 },
+  { label: '30 dias', hours: 24 * 30 },
+]
 
 function secondsSince(isoString) {
   if (!isoString) return null
   return (Date.now() - new Date(isoString).getTime()) / 1000
 }
 
-function UptimeTile({ uptimePct }) {
+function UptimeTile({ uptimePct, windowHours }) {
   const valueRef = useRef(null)
   const prevRef = useRef(null)
 
@@ -42,7 +51,7 @@ function UptimeTile({ uptimePct }) {
   return (
     <div className="flex flex-col justify-center rounded-[22px] border border-hairline bg-surface p-5 shadow-[0_4px_20px_rgba(14,10,26,0.05)]">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-        Uptime ({WINDOW_HOURS}h)
+        Uptime ({WINDOW_PRESETS.find((preset) => preset.hours === windowHours)?.label ?? `${windowHours}h`})
       </p>
       {uptimePct === null ? (
         <>
@@ -56,7 +65,7 @@ function UptimeTile({ uptimePct }) {
   )
 }
 
-function ChargerDetailContent({ data }) {
+function ChargerDetailContent({ data, windowHours, onChangeWindowHours }) {
   const anomaliesRef = useRef(null)
   const sessionsRef = useRef(null)
 
@@ -105,7 +114,7 @@ function ChargerDetailContent({ data }) {
             )}
           </div>
 
-          <UptimeTile uptimePct={data.uptime_pct} />
+          <UptimeTile uptimePct={data.uptime_pct} windowHours={data.readings_window_hours} />
 
           <div className="flex flex-col justify-center rounded-[22px] border border-hairline bg-surface p-5 shadow-[0_4px_20px_rgba(14,10,26,0.05)]">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Sessões recentes</p>
@@ -114,7 +123,23 @@ function ChargerDetailContent({ data }) {
         </div>
 
         <div className="rounded-[22px] border border-hairline bg-surface p-5 shadow-[0_4px_20px_rgba(14,10,26,0.05)]">
-          <h2 className="mb-3 font-heading text-base font-semibold text-ink">Curva de potência</h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-heading text-base font-semibold text-ink">Curva de potência</h2>
+            <div className="flex gap-1 rounded-full bg-cream p-1">
+              {WINDOW_PRESETS.map((preset) => (
+                <button
+                  key={preset.hours}
+                  type="button"
+                  onClick={() => onChangeWindowHours(preset.hours)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                    windowHours === preset.hours ? 'bg-brand text-white' : 'text-muted-2'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <PowerCurveChart
             points={data.power_readings}
             nominalKw={data.nominal_power_kw}
@@ -190,10 +215,11 @@ function ChargerDetailContent({ data }) {
 
 export function ChargerDetalhePage() {
   const { chargerId } = useParams()
+  const [windowHours, setWindowHours] = useState(DEFAULT_WINDOW_HOURS)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['charger-detail', chargerId],
-    queryFn: () => apiClient.get(`/chargers/${chargerId}/detail?hours=${WINDOW_HOURS}`),
+    queryKey: ['charger-detail', chargerId, windowHours],
+    queryFn: () => apiClient.get(`/chargers/${chargerId}/detail?hours=${windowHours}`),
     refetchInterval: 20_000,
   })
 
@@ -211,5 +237,7 @@ export function ChargerDetalhePage() {
     )
   }
 
-  return <ChargerDetailContent data={data} />
+  return (
+    <ChargerDetailContent data={data} windowHours={windowHours} onChangeWindowHours={setWindowHours} />
+  )
 }

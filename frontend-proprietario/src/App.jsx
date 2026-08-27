@@ -4,6 +4,7 @@ import { AppShell } from './components/AppShell'
 import { AuthProvider, useAuth } from './lib/auth'
 import { ChargerDetalhePage } from './pages/ChargerDetalhePage'
 import { ChatPage } from './pages/ChatPage'
+import { ConfiguracoesPage } from './pages/ConfiguracoesPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { FilaProprietarioPage } from './pages/FilaProprietarioPage'
 import { FrotaPage } from './pages/FrotaPage'
@@ -26,6 +27,7 @@ const PAGE_COMPONENTS = {
   '/frota': FrotaPage,
   '/onboarding': OnboardingPage,
   '/assistente': ChatPage,
+  '/configuracoes': ConfiguracoesPage,
 }
 
 function RequireAuth({ children }) {

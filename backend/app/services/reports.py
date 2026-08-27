@@ -10,9 +10,15 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
+from app.models.charger import Charger
 from app.models.enums import ChargingSessionStatus
 from app.models.session import ChargingSession
-from app.schemas.reports import DailyRevenuePoint, ReportResponse
+from app.schemas.reports import (
+    ChargerOccupancy,
+    DailyRevenuePoint,
+    OccupancyResponse,
+    ReportResponse,
+)
 
 LOCAL_TZ = ZoneInfo("America/Sao_Paulo")
 MONEY_QUANT = Decimal("0.0001")
@@ -75,5 +81,64 @@ def get_report(
         total_energy_kwh=energy_total,
         daily_revenue=[
             DailyRevenuePoint(date=d, revenue=v) for d, v in sorted(daily_totals.items())
+        ],
+    )
+
+
+def get_charger_occupancy(
+    db: Session, establishment_id, from_date: date, to_date: date
+) -> OccupancyResponse:
+    """Uma linha por vaga - quantas sessoes, quanta energia/receita e quantas horas de
+    carregamento cada carregador teve no periodo. Base do grafico 'ocupacao por vaga'
+    (visao de mercado: qual vaga rende mais) - so soma sessao `finished` real, igual
+    `get_report`, nunca estima ocupacao a partir de status atual."""
+    chargers = (
+        db.query(Charger)
+        .filter(Charger.establishment_id == establishment_id)
+        .order_by(Charger.spot_label)
+        .all()
+    )
+
+    empty_bucket = {
+        "sessions_count": 0,
+        "energy_kwh": Decimal("0.000"),
+        "revenue": Decimal("0.0000"),
+        "hours_charged": Decimal("0.00"),
+    }
+    by_charger: dict = defaultdict(lambda: dict(empty_bucket))
+
+    finished = (
+        db.query(ChargingSession)
+        .filter(
+            ChargingSession.establishment_id == establishment_id,
+            ChargingSession.status == ChargingSessionStatus.finished,
+            ChargingSession.ended_at.is_not(None),
+        )
+        .all()
+    )
+    for session in finished:
+        ended_local_date = _as_utc(session.ended_at).astimezone(LOCAL_TZ).date()
+        if not (from_date <= ended_local_date <= to_date):
+            continue
+        bucket = by_charger[session.charger_id]
+        bucket["sessions_count"] += 1
+        bucket["energy_kwh"] += session.energy_kwh or Decimal("0.000")
+        bucket["revenue"] += session.amount_due or Decimal("0.0000")
+        duration_hours = Decimal(
+            (_as_utc(session.ended_at) - _as_utc(session.started_at)).total_seconds()
+        ) / Decimal("3600")
+        bucket["hours_charged"] += duration_hours.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    return OccupancyResponse(
+        establishment_id=establishment_id,
+        from_date=from_date,
+        to_date=to_date,
+        chargers=[
+            ChargerOccupancy(
+                charger_id=charger.id,
+                spot_label=charger.spot_label,
+                **by_charger.get(charger.id, empty_bucket),
+            )
+            for charger in chargers
         ],
     )
