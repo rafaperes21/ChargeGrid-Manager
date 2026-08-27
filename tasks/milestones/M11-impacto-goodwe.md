@@ -42,13 +42,33 @@ pequena, a tela mostra pequeno mesmo — ser honesto sobre a escala em vez de fo
       `summary` em `health.py`. Muitos endpoints já tinham docstring (o Swagger já usa como
       descrição individual automaticamente); o que faltava era o agrupamento por tag legível.
 
+- [x] **Extra — Tela de detalhe do carregador (telemetria)**, adicionada em 27/08/2026 fora
+      da lista original: pedido explícito do usuário depois de feedback do professor sobre
+      "visão de mercado e venda" - mostrar telemetria granular por unidade física fala
+      diretamente com quem vende hardware. `GET /chargers/{id}/detail?hours=` novo
+      (`services/charger_detail.py`, owner-only, escopado ao próprio estabelecimento) reúne:
+      uptime (`None`, nunca 0%, quando não há leitura na janela - o polling só acumula
+      histórico desde que o ambiente subiu, sem seed de leituras antigas), curva de potência
+      real ponto a ponto (`ChargerReading`, sem interpolar), sessões filtradas por
+      `charger_id` (antes só dava pra filtrar por estabelecimento) e anomalias da IA
+      filtradas pelo `sems_serial` daquele carregador. `ChargerDetalhePage.jsx`
+      (`frontend-proprietario`, rota `/carregadores/:chargerId`) consome isso com um gráfico
+      de linha animado (`PowerCurveChart.jsx` - sem lib nova, mesma técnica de
+      `stroke-dasharray`/`pathLength=1` já usada na confirmação de sessão do cliente),
+      crosshair+tooltip no hover e alternativa em tabela (skill `dataviz`). Cada card do
+      "Mapa de vagas" do Dashboard agora é um link pra essa tela. Testado ao vivo como
+      `dono@chargegrid.demo`: 112 leituras reais nas últimas 24h, uptime 100%, path SVG sem
+      `NaN`, tabela e toggle funcionando.
+
 ## Testes
 
-`test_fleet.py` (serviço, com IA mockada) e `test_fleet_api.py` (autorização: overview é
-owner-only e exige token, impact é público) - 169 testes backend passando no total.
-Verificado ao vivo nos dois portais: hero de impacto na tela de login com dado real da base
-de demo (4 estabelecimentos, ~16.500 kWh, R$ 33 de receita), painel de frota com os 6 cards e
-a sugestão de cross-sell calculada certa (53% = 40kW/75kW do Estacionamento Central).
+`test_fleet.py` (serviço, com IA mockada), `test_fleet_api.py` (autorização: overview é
+owner-only e exige token, impact é público) e `test_charger_detail.py` (uptime `None` vs
+fração, janela de leituras, sessões escopadas ao carregador certo, autorização) - 176 testes
+backend passando no total. Verificado ao vivo nos dois portais: hero de impacto na tela de
+login com dado real da base de demo (4 estabelecimentos, ~16.500 kWh, R$ 33 de receita),
+painel de frota com os 6 cards e a sugestão de cross-sell calculada certa (53% = 40kW/75kW do
+Estacionamento Central), tela de detalhe do carregador com dado real do polling.
 
 ## Armadilhas
 
