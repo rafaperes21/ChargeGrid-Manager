@@ -21,3 +21,10 @@ class QueueEntryRead(BaseModel):
 
 class QueueEntryWithPosition(QueueEntryRead):
     position: int
+
+
+class QueueEntryOwnerRead(QueueEntryRead):
+    """So para `GET /queue` (dono) - nome do cliente, pra ele saber quem chamar. `/queue/mine`
+    (cliente) nao precisa disso, e' o proprio nome dele."""
+
+    user_full_name: str

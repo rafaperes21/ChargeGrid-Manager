@@ -23,7 +23,7 @@ quem cria dados de teste precisa setar o status manualmente antes de abrir uma s
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
@@ -253,6 +253,33 @@ def _finish_session(
     _release_charger(db, session.charger_id)
 
 
+def estimate_live_amount(db: Session, session: ChargingSession, now: datetime) -> Decimal | None:
+    """Estimativa do valor acumulado de uma sessao `active`, pra tela do cliente mostrar
+    algo alem de kWh enquanto carrega - nunca extrapolado no frontend (skill `ui-dois-portais`).
+    Mesma tarifa/plano/franquia que `_finish_session` usaria se a sessao fechasse agora; `None`
+    se nao houver regra de tarifa pro horario de inicio (mesmo caso que vira `error` no fechamento
+    real - melhor nao estimar do que inventar um preco)."""
+    started_at = _as_utc(session.started_at)
+    local_started_at = started_at.astimezone(LOCAL_TZ)
+
+    tariff_rule = resolve_active_tariff_rule(db, session.establishment_id, local_started_at)
+    if tariff_rule is None:
+        return None
+
+    plan_context = _resolve_plan_context(db, session.user_id, session.establishment_id)
+    duration_minutes = Decimal((now - started_at).total_seconds()) / Decimal("60")
+
+    result = calculate_session_amount(
+        energy_kwh=session.energy_kwh or Decimal("0.000"),
+        tariff_rate_per_kwh=tariff_rule.price_per_kwh,
+        session_duration_minutes=duration_minutes,
+        free_minutes=plan_context.free_minutes,
+        plan_discount_pct=plan_context.discount_pct,
+        franquia_kwh_available=plan_context.franquia_kwh_available,
+    )
+    return result.final_amount
+
+
 def sync_session(db: Session, session: ChargingSession) -> ChargingSession:
     if session.status not in (ChargingSessionStatus.pending, ChargingSessionStatus.active):
         return session  # finished/error sao terminais
@@ -287,9 +314,39 @@ def sync_session(db: Session, session: ChargingSession) -> ChargingSession:
 
 
 def build_receipt(session: ChargingSession) -> dict:
-    """Recibo digital minimo, derivado do snapshot da sessao - nada persistido a mais."""
+    """Recibo digital com a decomposicao bruto -> promocao -> desconto -> franquia -> total
+    (skill `tarifacao-e-sessoes`), reconstruida a partir do snapshot ja persistido - nunca
+    reprocessada contra tariff_rules/plans atuais (CLAUDE.md), so a aritmetica de
+    `pricing.calculate_session_amount` reaplicada aos mesmos numeros congelados no fechamento.
+
+    O valor de franquia usada em R$ nao foi persistido (so o resultado final, `amount_due`) -
+    recalculamos o valor SEM franquia e tiramos a diferenca contra o `amount_due` real, que ja
+    inclui a franquia que de fato foi aplicada. Isso nunca inventa numero: cada componente vem
+    de uma coluna persistida ou de subtracao entre dois valores persistidos/recalculados.
+    """
     if session.status != ChargingSessionStatus.finished:
         raise ValueError("So sessoes finalizadas tem recibo")
+
+    duration_minutes = Decimal(
+        (_as_utc(session.ended_at) - _as_utc(session.started_at)).total_seconds()
+    ) / Decimal("60")
+
+    without_franquia = calculate_session_amount(
+        energy_kwh=session.energy_kwh or Decimal("0.000"),
+        tariff_rate_per_kwh=session.tariff_rate_applied,
+        session_duration_minutes=duration_minutes,
+        free_minutes=session.free_minutes_applied or 0,
+        plan_discount_pct=session.plan_discount_pct or Decimal("0"),
+        franquia_kwh_available=Decimal("0"),
+    )
+    promo_value = without_franquia.promo_kwh_deducted * session.tariff_rate_applied
+    amount_after_promo = without_franquia.gross_amount - promo_value
+    amount_after_discount = without_franquia.final_amount
+    discount_value = amount_after_promo - amount_after_discount
+    # residual: a diferenca entre "sem franquia" e o amount_due real e a franquia de fato
+    # aplicada no fechamento. Nao pode ser negativo - se for, e sinal de sessao antiga com dado
+    # inconsistente, nao um valor real a mostrar.
+    franquia_value = max(Decimal("0.0000"), amount_after_discount - session.amount_due)
 
     return {
         "session_id": str(session.id),
@@ -300,4 +357,9 @@ def build_receipt(session: ChargingSession) -> dict:
         "plan_discount_pct": str(session.plan_discount_pct),
         "free_minutes_applied": session.free_minutes_applied,
         "amount_due": str(session.amount_due),
+        "gross_amount": str(without_franquia.gross_amount),
+        "promo_value": str(promo_value.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)),
+        "discount_value": str(discount_value.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)),
+        "franquia_value": str(franquia_value),
+        "final_amount": str(session.amount_due),
     }

@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -10,8 +11,13 @@ from app.models.enums import ChargingSessionStatus
 from app.models.establishment import Establishment
 from app.models.session import ChargingSession
 from app.models.user import User
-from app.schemas.session import ChargingSessionRead, ReceiptRead, SessionStartRequest
-from app.services.sessions import build_receipt, start_session, sync_session
+from app.schemas.session import (
+    ChargingSessionRead,
+    CurrentSessionRead,
+    ReceiptRead,
+    SessionStartRequest,
+)
+from app.services.sessions import build_receipt, estimate_live_amount, start_session, sync_session
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -25,10 +31,10 @@ def start_charging_session(
     return start_session(db, current_user, payload.charger_id)
 
 
-@router.get("/current", response_model=ChargingSessionRead)
+@router.get("/current", response_model=CurrentSessionRead)
 def read_current_session(
     db: Session = Depends(get_db), current_user: User = Depends(require_customer)
-) -> ChargingSession:
+) -> CurrentSessionRead:
     session = (
         db.query(ChargingSession)
         .filter(
@@ -43,7 +49,35 @@ def read_current_session(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Nenhuma sessao em andamento"
         )
-    return sync_session(db, session)
+    session = sync_session(db, session)
+
+    estimated_amount_due = None
+    if session.status == ChargingSessionStatus.active:
+        estimated_amount_due = estimate_live_amount(db, session, datetime.now(tz=UTC))
+
+    return CurrentSessionRead(
+        **ChargingSessionRead.model_validate(session).model_dump(),
+        estimated_amount_due=estimated_amount_due,
+    )
+
+
+@router.get("/mine", response_model=list[ChargingSessionRead])
+def list_my_sessions(
+    db: Session = Depends(get_db), current_user: User = Depends(require_customer)
+) -> list[ChargingSession]:
+    """Historico do cliente - so sessoes terminais (finished/error); pending/active ja
+    aparecem em `GET /sessions/current`."""
+    return (
+        db.query(ChargingSession)
+        .filter(
+            ChargingSession.user_id == current_user.id,
+            ChargingSession.status.in_(
+                [ChargingSessionStatus.finished, ChargingSessionStatus.error]
+            ),
+        )
+        .order_by(ChargingSession.started_at.desc())
+        .all()
+    )
 
 
 @router.get("/{session_id}/receipt", response_model=ReceiptRead)

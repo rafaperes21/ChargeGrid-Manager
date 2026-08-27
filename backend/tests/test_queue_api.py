@@ -116,3 +116,4 @@ def test_list_queue_e_owner_only(client):
     )
     assert allowed.status_code == 200
     assert len(allowed.json()) == 1
+    assert allowed.json()[0]["user_full_name"] == "Fulano"

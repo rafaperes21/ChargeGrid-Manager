@@ -28,6 +28,13 @@ class ChargingSessionRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CurrentSessionRead(ChargingSessionRead):
+    """So usado por `GET /sessions/current` - `estimated_amount_due` e uma projecao ao vivo
+    (tarifa+plano resolvidos como se a sessao fechasse agora), nunca o valor final."""
+
+    estimated_amount_due: Decimal | None
+
+
 class ReceiptRead(BaseModel):
     session_id: str
     started_at: str
@@ -37,3 +44,8 @@ class ReceiptRead(BaseModel):
     plan_discount_pct: str
     free_minutes_applied: int | None
     amount_due: str
+    gross_amount: str
+    promo_value: str
+    discount_value: str
+    franquia_value: str
+    final_amount: str

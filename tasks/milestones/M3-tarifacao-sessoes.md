@@ -104,16 +104,18 @@ fluindo). É o milestone com mais teste unitário exigido — não adiar os test
       cálculo manual — testado tanto com dados sintéticos (`test_sessions.py`) quanto ao vivo
       contra o servidor real, com o polling do M2 alimentando as leituras
 
-## O front ainda não consome nada disso
+## Religamento do front (27/08/2026)
 
-Nenhuma tela de `frontend-proprietario/` ou `frontend-cliente/` foi tocada nesta rodada —
-decisão explícita de manter o front como está até haver uma confirmação separada para
-conectá-lo. Os banners "em construção" em `SessaoPage.jsx` (cliente) e `FilaPage.jsx`/
-`RelatoriosPage.jsx` (proprietário) continuam lá, mesmo com os endpoints já existindo e
-testados (`POST /sessions/start`, `GET /sessions/current`, `GET /sessions/{id}/receipt`,
-`GET /sessions`, `POST /queue/join`, `GET /queue/mine`, `GET /queue`). Ver M4/M5 — as notas
-que diziam "depende de M3, que não existe" foram corrigidas para "M3 existe, front não
-conecta ainda", que é a razão real da lacuna agora.
+Atualização: o front foi conectado nesta rodada, com confirmação explícita do usuário.
+`SessaoPage.jsx`/`FilaPage.jsx`/`HistoricoPage.jsx` (cliente) e `FilaProprietarioPage.jsx`/
+`RelatoriosPage.jsx`/`TarifasPage.jsx` (proprietário) consomem os endpoints reais agora — os
+banners "em construção" citando M3 foram removidos. Ver M4/M5 pros detalhes tela por tela.
+Dois endpoints novos nasceram desse religamento (não existiam quando M3/M2 fecharam):
+`GET /sessions/mine` (histórico do cliente) e `GET /establishments/{id}/reports` (fechamento
+financeiro por período, usado por `RelatoriosPage.jsx`). `GET /sessions/current` ganhou
+`estimated_amount_due` (valor ao vivo projetado enquanto a sessão está `active`) e
+`GET /sessions/{id}/receipt` ganhou a decomposição em R$ (bruto/promoção/desconto/franquia),
+reconstruída do snapshot já persistido — nunca reprocessada contra tarifa/plano atuais.
 
 ## Armadilhas
 
