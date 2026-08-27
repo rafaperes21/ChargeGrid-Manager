@@ -1,6 +1,8 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useMatch } from 'react-router-dom'
+import { useRef } from 'react'
 import { useAuth } from '../lib/auth'
 import { routes } from '../routes'
+import { gsap, MICRO, useGSAP } from '../lib/motion'
 
 // Icones por rota - mesmos paths SVG do modelo de design (feather icons).
 const ICONS = {
@@ -52,20 +54,54 @@ const ICONS = {
   '/assistente': <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
 }
 
-function NavIcon({ path, active }) {
+function SidebarNavItem({ route }) {
+  const isActive = Boolean(useMatch({ path: route.path, end: route.path === '/' }))
+  const indicatorRef = useRef(null)
+  const bgRef = useRef(null)
+  const iconRef = useRef(null)
+
+  // Destaque do item ativo transiciona suavemente (barra lateral + fundo + cor do icone) em
+  // vez de trocar de classe instantaneo.
+  useGSAP(() => {
+    gsap.to(indicatorRef.current, { autoAlpha: isActive ? 1 : 0, ...MICRO })
+    gsap.to(bgRef.current, { autoAlpha: isActive ? 1 : 0, ...MICRO })
+    gsap.to(iconRef.current, { stroke: isActive ? '#ffffff' : 'rgba(255,255,255,0.6)', ...MICRO })
+  }, [isActive])
+
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={active ? '#ffffff' : 'rgba(255,255,255,0.6)'}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+    <NavLink
+      to={route.path}
+      end={route.path === '/'}
+      className={`relative flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-[13px] font-medium ${
+        isActive ? 'font-semibold text-white' : 'text-white/60 hover:bg-white/5'
+      }`}
     >
-      {ICONS[path]}
-    </svg>
+      <span
+        ref={bgRef}
+        className="absolute inset-0 rounded-[10px] bg-gradient-to-r from-brand/20 to-accent-purple/15"
+        style={{ opacity: 0 }}
+      />
+      <span
+        ref={indicatorRef}
+        className="absolute inset-y-1.5 -left-3 w-[3px] rounded"
+        style={{ background: 'linear-gradient(180deg,#E60012,#7C3AED)', opacity: 0 }}
+      />
+      <svg
+        ref={iconRef}
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="rgba(255,255,255,0.6)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="relative"
+      >
+        {ICONS[route.path]}
+      </svg>
+      <span className="relative">{route.title}</span>
+    </NavLink>
   )
 }
 
@@ -101,58 +137,12 @@ export function Sidebar() {
 
       <nav className="flex flex-1 flex-col gap-0.5 p-3">
         {mainRoutes.map((route) => (
-          <NavLink
-            key={route.path}
-            to={route.path}
-            end={route.path === '/'}
-            className={({ isActive }) =>
-              `relative flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-[13px] font-medium ${
-                isActive
-                  ? 'bg-gradient-to-r from-brand/20 to-accent-purple/15 font-semibold text-white'
-                  : 'text-white/60 hover:bg-white/5'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <span
-                    className="absolute inset-y-1.5 -left-3 w-[3px] rounded"
-                    style={{ background: 'linear-gradient(180deg,#E60012,#7C3AED)' }}
-                  />
-                )}
-                <NavIcon path={route.path} active={isActive} />
-                {route.title}
-              </>
-            )}
-          </NavLink>
+          <SidebarNavItem key={route.path} route={route} />
         ))}
 
         {assistantRoute && (
           <div className="mt-2.5 border-t border-white/10 pt-3">
-            <NavLink
-              to={assistantRoute.path}
-              className={({ isActive }) =>
-                `relative flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-[13px] font-medium ${
-                  isActive
-                    ? 'bg-gradient-to-r from-brand/20 to-accent-purple/15 font-semibold text-white'
-                    : 'text-white/60 hover:bg-white/5'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <span
-                      className="absolute inset-y-1.5 -left-3 w-[3px] rounded"
-                      style={{ background: 'linear-gradient(180deg,#E60012,#7C3AED)' }}
-                    />
-                  )}
-                  <NavIcon path={assistantRoute.path} active={isActive} />
-                  {assistantRoute.title}
-                </>
-              )}
-            </NavLink>
+            <SidebarNavItem route={assistantRoute} />
           </div>
         )}
       </nav>

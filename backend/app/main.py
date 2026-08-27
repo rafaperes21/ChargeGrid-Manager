@@ -14,7 +14,9 @@ from app.api.establishments import router as establishments_router
 from app.api.health import router as health_router
 from app.api.onboarding import router as onboarding_router
 from app.api.plans import router as plans_router
+from app.api.pricing_suggestions import router as pricing_suggestions_router
 from app.api.queue import router as queue_router
+from app.api.reports import router as reports_router
 from app.api.sessions import router as sessions_router
 from app.api.tariffs import router as tariffs_router
 from app.api.users import router as users_router
@@ -67,3 +69,5 @@ app.include_router(dashboard_router)
 app.include_router(onboarding_router)
 app.include_router(sessions_router)
 app.include_router(queue_router)
+app.include_router(reports_router)
+app.include_router(pricing_suggestions_router)

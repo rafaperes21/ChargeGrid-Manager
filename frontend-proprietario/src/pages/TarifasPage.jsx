@@ -1,10 +1,128 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button } from '../components/ui/Button'
 import { ApiError, apiClient } from '../lib/apiClient'
 import { useAuth } from '../lib/auth'
+import { gsap, TRANSITION, useGSAP } from '../lib/motion'
 
 const DAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+
+function PricingSuggestions({ establishmentId }) {
+  const queryClient = useQueryClient()
+  const [appliedId, setAppliedId] = useState(null)
+  const cardsRef = useRef(null)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['pricing-suggestions', establishmentId],
+    queryFn: () => apiClient.get(`/pricing-suggestions/establishments/${establishmentId}`),
+    enabled: Boolean(establishmentId),
+    refetchInterval: 60_000,
+  })
+
+  // Entrada com leve slide+fade a cada vez que a lista de sugestoes muda (novo horizonte,
+  // sugestao aplicada e removida, etc.) - gsap.set() garante o estado inicial sincrono
+  // (ver feedback_gsap_counter_gotcha: sem isso, gsap.fromTo() com o mesmo from/to nunca
+  // dispara onUpdate e o card fica sem transicao visivel).
+  useGSAP(() => {
+    if (!cardsRef.current) return
+    const cards = cardsRef.current.querySelectorAll('[data-suggestion-card]')
+    if (cards.length === 0) return
+    gsap.set(cards, { autoAlpha: 0, y: 8 })
+    gsap.to(cards, { autoAlpha: 1, y: 0, stagger: 0.06, ...TRANSITION })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.suggestions?.length])
+
+  const applyMutation = useMutation({
+    mutationFn: ({ tariffRuleId, price }) =>
+      apiClient.patch(`/tariffs/${tariffRuleId}`, { price_per_kwh: price }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['tariffs', establishmentId] })
+      setAppliedId(variables.tariffRuleId)
+    },
+  })
+
+  if (isLoading || !data) return null
+
+  if (data.status === 'insufficient_data') {
+    return (
+      <div className="rounded-[18px] border border-hairline bg-white p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+        <h2 className="font-heading text-sm font-bold text-ink">Sugestão de precificação dinâmica</h2>
+        <p className="mt-2 text-sm text-muted">
+          Ainda não há histórico suficiente (mínimo de semanas de dado) para a IA sugerir ajustes.
+        </p>
+      </div>
+    )
+  }
+
+  if (data.status === 'ia_unavailable') {
+    return (
+      <div className="rounded-[18px] border border-hairline bg-white p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+        <h2 className="font-heading text-sm font-bold text-ink">Sugestão de precificação dinâmica</h2>
+        <p className="mt-2 text-sm text-status-problema">Serviço de IA indisponível no momento.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-[18px] border border-hairline bg-white p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+      <h2 className="font-heading text-sm font-bold text-ink">Sugestão de precificação dinâmica</h2>
+      <p className="mt-1 text-xs text-muted-2">
+        A IA nunca altera tarifa sozinha — cada sugestão só vale se você clicar em "Aplicar".
+      </p>
+
+      {data.suggestions.length === 0 && (
+        <p className="mt-3 text-sm text-muted">Nenhum ajuste sugerido pro horizonte atual.</p>
+      )}
+
+      <div ref={cardsRef} className="mt-3 flex flex-col gap-2.5">
+        {data.suggestions.map((s) => {
+          const key = `${s.tariff_rule_id}-${s.day_of_week}-${s.hour_local}`
+          const isIncrease = s.direction === 'increase'
+          const wasApplied = appliedId === s.tariff_rule_id && applyMutation.isSuccess
+          return (
+            <div
+              key={key}
+              data-suggestion-card
+              className="flex items-center justify-between gap-3 rounded-2xl border border-hairline px-4 py-3"
+            >
+              <div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                      isIncrease ? 'bg-status-reservado/10 text-status-reservado' : 'bg-status-carregando/10 text-status-carregando'
+                    }`}
+                  >
+                    {isIncrease ? '↑ Aumento' : '↓ Redução'}
+                  </span>
+                  <span className="text-xs font-semibold text-muted-2">
+                    {DAY_LABELS[s.day_of_week]} {s.hour_local}h · {s.tariff_rule_name}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-muted">{s.reason}</p>
+                <p className="mt-1 text-sm text-ink">
+                  R$ {Number(s.current_price_per_kwh).toFixed(2)} →{' '}
+                  <strong>R$ {Number(s.suggested_price_per_kwh).toFixed(2)}</strong>/kWh
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                disabled={applyMutation.isPending}
+                onClick={() =>
+                  applyMutation.mutate({
+                    tariffRuleId: s.tariff_rule_id,
+                    price: String(s.suggested_price_per_kwh),
+                  })
+                }
+              >
+                {wasApplied ? 'Aplicado ✓' : 'Aplicar'}
+              </Button>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 function describeDays(daysOfWeek) {
   const days = daysOfWeek.split(',').filter(Boolean).map(Number).sort()
@@ -122,6 +240,8 @@ export function TarifasPage() {
       </div>
 
       <div className="flex flex-col gap-4 p-8">
+        <PricingSuggestions establishmentId={establishment.id} />
+
         {showForm && (
           <form
             onSubmit={handleSubmit}

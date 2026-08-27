@@ -9,7 +9,12 @@ from app.db.session import get_db
 from app.models.establishment import Establishment
 from app.models.queue import QueueEntry
 from app.models.user import User
-from app.schemas.queue import QueueEntryRead, QueueEntryWithPosition, QueueJoinRequest
+from app.schemas.queue import (
+    QueueEntryOwnerRead,
+    QueueEntryRead,
+    QueueEntryWithPosition,
+    QueueJoinRequest,
+)
 from app.services.queue import get_ordered_queue, join_queue, leave_queue
 
 router = APIRouter(prefix="/queue", tags=["queue"])
@@ -65,11 +70,18 @@ def leave_my_queue(
     leave_queue(db, entry)
 
 
-@router.get("", response_model=list[QueueEntryRead])
+@router.get("", response_model=list[QueueEntryOwnerRead])
 def list_queue(
     establishment_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_owner),
-) -> list[QueueEntry]:
+) -> list[QueueEntryOwnerRead]:
     get_owned_establishment(establishment_id, db, current_user)
-    return get_ordered_queue(db, establishment_id)
+    entries = get_ordered_queue(db, establishment_id)
+    return [
+        QueueEntryOwnerRead(
+            **QueueEntryRead.model_validate(entry).model_dump(),
+            user_full_name=entry.user.full_name,
+        )
+        for entry in entries
+    ]

@@ -1,5 +1,7 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useMatch } from 'react-router-dom'
+import { useRef } from 'react'
 import { routes } from '../routes'
+import { gsap, MICRO, useGSAP } from '../lib/motion'
 
 const ICONS = {
   '/': <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" />,
@@ -26,40 +28,55 @@ const ICONS = {
   '/ajuda': <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
 }
 
+function NavItem({ route }) {
+  const isActive = Boolean(useMatch({ path: route.path, end: route.path === '/' }))
+  const indicatorRef = useRef(null)
+  const iconRef = useRef(null)
+
+  // Destaque do item ativo transiciona suavemente (barra + cor do icone) em vez de trocar
+  // de classe instantaneo.
+  useGSAP(() => {
+    if (!indicatorRef.current) return
+    gsap.to(indicatorRef.current, { scaleX: isActive ? 1 : 0, ...MICRO })
+    gsap.to(iconRef.current, { stroke: isActive ? '#E60012' : '#9A96A6', ...MICRO })
+  }, [isActive])
+
+  return (
+    <NavLink
+      to={route.path}
+      end={route.path === '/'}
+      className="relative flex flex-1 flex-col items-center gap-1 py-2.5"
+    >
+      <span
+        ref={indicatorRef}
+        className="absolute top-0 left-1/2 h-[3px] w-[22px] origin-center -translate-x-1/2 rounded-b"
+        style={{ background: 'linear-gradient(90deg,#E60012,#FF7A1A)', transform: 'scaleX(0)' }}
+      />
+      <svg
+        ref={iconRef}
+        width="19"
+        height="19"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#9A96A6"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {ICONS[route.path]}
+      </svg>
+      <span className={`text-[10px] font-semibold transition-colors duration-300 ${isActive ? 'text-brand' : 'text-muted-3'}`}>
+        {route.title}
+      </span>
+    </NavLink>
+  )
+}
+
 export function BottomNav() {
   return (
     <div className="flex w-full border-t border-hairline bg-white font-body">
       {routes.map((route) => (
-        <NavLink
-          key={route.path}
-          to={route.path}
-          end={route.path === '/'}
-          className="relative flex flex-1 flex-col items-center gap-1 py-2.5"
-        >
-          {({ isActive }) => (
-            <>
-              <span
-                className="absolute top-0 left-1/2 h-[3px] w-[22px] -translate-x-1/2 rounded-b"
-                style={{ background: isActive ? 'linear-gradient(90deg,#E60012,#FF7A1A)' : 'transparent' }}
-              />
-              <svg
-                width="19"
-                height="19"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke={isActive ? '#E60012' : '#9A96A6'}
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                {ICONS[route.path]}
-              </svg>
-              <span className={`text-[10px] font-semibold ${isActive ? 'text-brand' : 'text-muted-3'}`}>
-                {route.title}
-              </span>
-            </>
-          )}
-        </NavLink>
+        <NavItem key={route.path} route={route} />
       ))}
     </div>
   )

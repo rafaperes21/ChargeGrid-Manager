@@ -1,4 +1,25 @@
-export function FilaPage() {
+import { useQuery } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
+import { ApiError, apiClient } from '../lib/apiClient'
+import { animateNumber, MICRO, useGSAP } from '../lib/motion'
+
+const formatPosition = (value) => String(Math.round(value))
+
+const RESERVATION_WINDOW_MINUTES = 15
+
+function reservationSecondsLeft(reservedAtIso) {
+  const reservedAt = new Date(reservedAtIso).getTime()
+  const deadline = reservedAt + RESERVATION_WINDOW_MINUTES * 60 * 1000
+  return Math.max(0, Math.floor((deadline - Date.now()) / 1000))
+}
+
+function formatCountdown(totalSeconds) {
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
+function NotInQueue() {
   return (
     <div className="flex flex-1 flex-col items-center gap-5 px-5 pb-5 pt-9">
       <div className="relative h-[160px] w-[160px]">
@@ -11,18 +32,91 @@ export function FilaPage() {
         </div>
       </div>
 
-      <p className="text-center text-sm text-muted-2">Você não está na fila de nenhum estacionamento no momento.</p>
+      <p className="text-center text-sm text-muted-2">
+        Você não está na fila de nenhum estacionamento no momento.
+      </p>
+    </div>
+  )
+}
 
-      <div className="flex w-full items-center gap-2.5 rounded-2xl border border-status-carregando bg-blue-50 px-4 py-3">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 16v-4" />
-          <path d="M12 8h.01" />
+export function FilaPage() {
+  const { data: entry, error, isLoading } = useQuery({
+    queryKey: ['queue-mine'],
+    queryFn: () => apiClient.get('/queue/mine'),
+    retry: false,
+    refetchInterval: 10_000,
+  })
+
+  const [, forceTick] = useState(0)
+  useEffect(() => {
+    if (!entry?.reserved_at) return undefined
+    const interval = setInterval(() => forceTick((n) => n + 1), 1000)
+    return () => clearInterval(interval)
+  }, [entry?.reserved_at])
+
+  const positionRef = useRef(null)
+  const prevPositionRef = useRef(null)
+
+  // Transicao suave ao mudar de posicao na fila - conta do valor anterior ate o novo em vez
+  // de saltar pro numero novo.
+  useGSAP(() => {
+    if (!entry || !positionRef.current) return
+    const to = entry.position
+    const from = prevPositionRef.current ?? to
+    animateNumber(positionRef.current, { from, to, ...MICRO, formatter: formatPosition })
+    prevPositionRef.current = to
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry?.position])
+
+  if (isLoading) {
+    return <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted">Carregando…</div>
+  }
+
+  if ((error instanceof ApiError && error.status === 404) || !entry) {
+    return <NotInQueue />
+  }
+
+  const isReserved = Boolean(entry.reserved_at)
+  const secondsLeft = isReserved ? reservationSecondsLeft(entry.reserved_at) : null
+
+  return (
+    <div className="flex flex-1 flex-col items-center gap-5 px-5 pb-5 pt-9">
+      <div className="relative h-[160px] w-[160px]">
+        <svg width="160" height="160" viewBox="0 0 180 180">
+          <circle cx="90" cy="90" r="76" fill="none" stroke="#EAE6F2" strokeWidth="14" />
+          {isReserved && (
+            <circle
+              cx="90"
+              cy="90"
+              r="76"
+              fill="none"
+              stroke="#D97706"
+              strokeWidth="14"
+              strokeLinecap="round"
+              strokeDasharray={2 * Math.PI * 76}
+              strokeDashoffset={2 * Math.PI * 76 * (1 - secondsLeft / (RESERVATION_WINDOW_MINUTES * 60))}
+              transform="rotate(-90 90 90)"
+            />
+          )}
         </svg>
-        <span className="text-xs text-blue-700">
-          <strong>Em construção</strong> — a fila depende do motor de tarifação/sessões (M3).
-        </span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-2">Posição</span>
+          <span ref={positionRef} className="text-4xl font-extrabold text-ink" />
+        </div>
       </div>
+
+      {isReserved ? (
+        <div className="w-full rounded-2xl border border-status-reservado bg-amber-50 px-4 py-3 text-center">
+          <p className="text-sm font-semibold text-amber-900">Vaga reservada para você</p>
+          <p className="mt-1 text-xs text-amber-800">
+            Chegue em até {formatCountdown(secondsLeft)} min ou a reserva expira.
+          </p>
+        </div>
+      ) : (
+        <p className="text-center text-sm text-muted-2">
+          Aguarde — você será notificado quando uma vaga liberar para você.
+        </p>
+      )}
     </div>
   )
 }

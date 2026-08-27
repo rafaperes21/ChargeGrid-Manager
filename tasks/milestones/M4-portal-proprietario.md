@@ -31,6 +31,10 @@ A tela que o jurado vai olhar primeiro. Desktop-first, densa, operacional.
 - [ ] Pré-visualização: "uma sessão de 20 kWh às 19h custaria R$ X" — `services/pricing.py`
       (M3) já existe e é uma função pura, fácil de expor num endpoint de simulação; só não
       há tela nem rota específica pra isso ainda
+- [x] **Sugestão de precificação dinâmica (M8) exibida na tela** — seção nova em
+      `TarifasPage.jsx` consumindo `GET /pricing-suggestions/establishments/{id}` (proxy do
+      backend principal pro serviço de IA). Direção, horário e motivo vêm prontos da IA;
+      botão "Aplicar" faz `PATCH /tariffs/{id}` manualmente — nunca automático
 
 ### Gestão de usuários e planos
 - [x] Lista de clientes com plano ativo (`UsuariosPlanosPage.jsx` consome a API real)
@@ -39,11 +43,20 @@ A tela que o jurado vai olhar primeiro. Desktop-first, densa, operacional.
 - [ ] Bloquear/desbloquear inadimplente — não encontrado na tela nem na API
 - [ ] Liberar novo cartão RFID pelo painel — tela só exibe o RFID já cadastrado, sem ação de emitir
 
+### Fila (visão do proprietário)
+- [x] Lista da fila com posição, nome do cliente e reservas ativas — `FilaProprietarioPage.jsx`
+      consome `GET /queue`, que ganhou `user_full_name` (não existia antes; o schema só tinha
+      o `user_id`, sem como o dono identificar quem chamar)
+- [ ] "Tempo médio de espera" e "espera estimada" por cliente — deixados como "—" de propósito;
+      dependem de um modelo de duração de sessão por carregador que não existe. Mostrar um
+      número aqui seria inventar dado (ver regra geral do projeto)
+
 ### Relatórios financeiros
-- [ ] Extrato mensal: receita bruta, nº de sessões, kWh total, ticket médio, horários de pico —
-      `RelatoriosPage.jsx` é placeholder, sem nenhuma chamada à API; o dado-fonte
-      (`charging_sessions` com snapshot de tarifa) já existe via `GET /sessions`, falta agregar
-      e conectar a tela
+- [x] Extrato do período: receita bruta, nº de sessões, ticket médio, kWh total — novo
+      endpoint `GET /establishments/{id}/reports?from=&to=` (default: mês corrente local),
+      `services/reports.py`, ligado a `RelatoriosPage.jsx` com gráfico de receita diária.
+      "Horários de pico" não incluído (isso é o mapa de calor do M8/forecast, não deste
+      relatório financeiro)
 - [ ] Comparativo entre meses
 - [ ] Exportação em PDF (cortável se o tempo apertar — manter a tela)
 

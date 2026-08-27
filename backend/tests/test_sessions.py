@@ -15,6 +15,7 @@ from app.services.pricing import calculate_session_amount
 from app.services.sessions import (
     LOCAL_TZ,
     build_receipt,
+    estimate_live_amount,
     start_session,
     sync_session,
 )
@@ -367,6 +368,115 @@ def test_sync_session_aplica_desconto_do_plano_e_franquia(db_session, establishm
         franquia_kwh_available=Decimal("0.100"),
     )
     assert result.amount_due == expected.final_amount
+
+
+def test_build_receipt_decompoe_bruto_promocao_desconto_franquia_e_total(
+    db_session, establishment, customer
+):
+    charger = _make_charger(db_session, establishment, status=ChargerStatus.reservado)
+    started_at = datetime.now(_UTC) - timedelta(minutes=10)
+    tariff_rate = Decimal("2.0000")
+    _make_full_day_tariff(db_session, establishment, started_at, tariff_rate)
+
+    plan = Plan(
+        establishment_id=establishment.id,
+        name="Mensal",
+        kind=PlanKind.mensal,
+        price=Decimal("49.90"),
+        free_kwh_allowance=Decimal("0.100"),
+        discount_pct=Decimal("15"),
+        priority=1,
+    )
+    db_session.add(plan)
+    db_session.commit()
+    db_session.refresh(plan)
+
+    subscription = Subscription(
+        user_id=customer.id,
+        plan_id=plan.id,
+        billing_cycle_start=date.today(),
+        billing_cycle_end=None,
+        active=True,
+    )
+    db_session.add(subscription)
+    db_session.commit()
+
+    session = ChargingSession(
+        user_id=customer.id,
+        charger_id=charger.id,
+        establishment_id=establishment.id,
+        status=ChargingSessionStatus.pending,
+        started_at=started_at,
+    )
+    db_session.add(session)
+    db_session.commit()
+
+    _add_reading(db_session, charger, started_at + timedelta(minutes=1), Decimal("6.000"))
+    _add_reading(db_session, charger, started_at + timedelta(minutes=2), Decimal("6.000"))
+    _add_reading(db_session, charger, started_at + timedelta(minutes=3), Decimal("0.000"))
+    _add_reading(db_session, charger, started_at + timedelta(minutes=4), Decimal("0.000"))
+
+    result = sync_session(db_session, session)
+    assert result.status == ChargingSessionStatus.finished
+
+    receipt = build_receipt(result)
+
+    gross = Decimal(receipt["gross_amount"])
+    promo = Decimal(receipt["promo_value"])
+    discount = Decimal(receipt["discount_value"])
+    franquia = Decimal(receipt["franquia_value"])
+    final = Decimal(receipt["final_amount"])
+
+    # decomposicao bate exatamente com o total persistido - nada e inventado, so
+    # decomposto a partir do snapshot congelado.
+    assert gross - promo - discount - franquia == final
+    assert final == result.amount_due
+    assert discount > 0  # plano com 15% de desconto foi aplicado
+    assert franquia > 0  # franquia de 0.100 kWh disponivel e consumida
+
+
+def test_estimate_live_amount_projeta_sessao_active_sem_persistir(
+    db_session, establishment, customer
+):
+    charger = _make_charger(db_session, establishment, status=ChargerStatus.reservado)
+    started_at = datetime.now(_UTC) - timedelta(minutes=5)
+    tariff_rate = Decimal("2.0000")
+    _make_full_day_tariff(db_session, establishment, started_at, tariff_rate)
+
+    session = ChargingSession(
+        user_id=customer.id,
+        charger_id=charger.id,
+        establishment_id=establishment.id,
+        status=ChargingSessionStatus.active,
+        started_at=started_at,
+        energy_kwh=Decimal("3.000"),
+    )
+    db_session.add(session)
+    db_session.commit()
+
+    estimate = estimate_live_amount(db_session, session, datetime.now(_UTC))
+
+    assert estimate == Decimal("3.000") * tariff_rate
+    # nao decidiu nada sobre a sessao - so leu e calculou, sem persistir
+    db_session.refresh(session)
+    assert session.status == ChargingSessionStatus.active
+    assert session.amount_due is None
+
+
+def test_estimate_live_amount_none_sem_tarifa_configurada(db_session, establishment, customer):
+    charger = _make_charger(db_session, establishment, status=ChargerStatus.reservado)
+    session = ChargingSession(
+        user_id=customer.id,
+        charger_id=charger.id,
+        establishment_id=establishment.id,
+        status=ChargingSessionStatus.active,
+        started_at=datetime.now(_UTC) - timedelta(minutes=5),
+        energy_kwh=Decimal("3.000"),
+    )
+    db_session.add(session)
+    db_session.commit()
+
+    assert estimate_live_amount(db_session, session, datetime.now(_UTC)) is None
 
 
 def test_build_receipt_exige_sessao_finalizada(db_session, establishment, customer):

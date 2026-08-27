@@ -1,7 +1,8 @@
 import { useMutation } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button } from '../components/ui/Button'
 import { apiClient } from '../lib/apiClient'
+import { gsap, TRANSITION, useGSAP } from '../lib/motion'
 
 const MODEL_LABELS = { GW7K: 'GoodWe HCA G2 — GW7K', GW11K: 'GoodWe HCA G2 — GW11K', GW22K: 'GoodWe HCA G2 — GW22K' }
 
@@ -68,6 +69,14 @@ export function OnboardingPage() {
   }
 
   const result = mutation.data
+  const resultRef = useRef(null)
+
+  // Transicao entre a etapa "sem resultado" e a etapa "resultado calculado" - mesma
+  // constante TRANSITION usada em toda troca de tela do produto (motion.js).
+  useGSAP(() => {
+    if (!result || !resultRef.current) return
+    gsap.fromTo(resultRef.current, { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0, ...TRANSITION })
+  }, [result])
 
   return (
     <div className="flex flex-1 flex-col">
@@ -156,7 +165,7 @@ export function OnboardingPage() {
           )}
 
           {result && (
-            <>
+            <div ref={resultRef} className="flex flex-col gap-4">
               <div className="flex items-center justify-between rounded-[18px] border-[1.5px] border-brand bg-white p-6 shadow-[0_2px_14px_rgba(230,0,18,0.08)]">
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-wide text-brand">Modelo recomendado</p>
@@ -215,7 +224,7 @@ export function OnboardingPage() {
                   Gerar PDF
                 </Button>
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>

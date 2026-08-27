@@ -20,13 +20,18 @@ Mobile-first. Usado em pé, no estacionamento, com pressa. Uma informação prin
       fisicamente no HCA G2 via SEMS+
 
 ### Sessão em andamento (prioridade máxima — tela mais vista do produto)
-- [ ] kWh carregados, % estimado da bateria, tempo estimado restante, valor acumulado, tarifa vigente
-      — `SessaoPage.jsx` continua placeholder, sem chamada à API. O motor de sessão (M3) já
-      existe: `POST /sessions/start` (abre por RFID) e `GET /sessions/current` (devolve
-      `status`/`energy_kwh`/`amount_due` ao vivo, já reavaliado a cada chamada) estão prontos
-      e testados — a lacuna agora é só a tela não consumir
-- [ ] Hierarquia visual: valor e tempo restante grandes; kWh e tarifa secundários
-- [ ] Sem modelo de veículo cadastrado → mostra kWh e **omite** o % de bateria
+- [x] kWh carregados e valor acumulado — `SessaoPage.jsx` consome `GET /sessions/current`.
+      Tarifa vigente não é mostrada isoladamente (o valor acumulado já reflete); `amount_due`
+      só existe quando a sessão fecha, então enquanto `active` o backend expõe
+      `estimated_amount_due` (novo campo, `services/sessions.estimate_live_amount`) — mesma
+      tarifa/plano/franquia que valeriam se a sessão fechasse agora, rotulado "(estimado)" na
+      tela, nunca extrapolado no frontend
+- [ ] % estimado da bateria, tempo estimado restante — sem cadastro de modelo de veículo (item
+      abaixo) não há base pra estimar, então não implementado ainda
+- [ ] Hierarquia visual: valor e tempo restante grandes; kWh e tarifa secundários — layout
+      atual é simples (status + tempo decorrido + valor + kWh), não redesenhado ainda
+- [ ] Sem modelo de veículo cadastrado → mostra kWh e **omite** o % de bateria — N/A por ora
+      (bateria ainda não é estimada, ver acima)
 - [ ] Barra de progresso interpolada localmente; kWh e R$ só com dado confirmado
 - [ ] Notificação push ao terminar
 
@@ -43,15 +48,20 @@ Mobile-first. Usado em pé, no estacionamento, com pressa. Uma informação prin
 - [ ] Link de navegação via Google Maps
 
 ### Fila inteligente
-- [ ] Entrar na fila quando tudo estiver ocupado — `FilaPage.jsx` não tem chamada à API. A
-      fila (M3) já existe: `POST /queue/join`, `GET /queue/mine` (posição + reserva ativa,
-      se houver) e `DELETE /queue/mine` estão prontos e testados — falta só a tela
-- [ ] Posição em tempo real, grande e acima da dobra
-- [ ] Notificação quando a vaga liberar, com a janela de 15 min visível em contagem regressiva
+- [x] Entrar na fila quando tudo estiver ocupado — `FilaPage.jsx` consome `GET /queue/mine`
+      (a ação de entrar na fila em si ainda não tem botão na tela, só a leitura de posição)
+- [x] Posição em tempo real, grande e acima da dobra
+- [ ] Notificação quando a vaga liberar — sem push; a janela de 15 min em contagem regressiva
+      está implementada (`FilaPage.jsx`), só falta a notificação em si
 
 ### Histórico e sustentabilidade
-- [ ] Lista de sessões: data, local, duração, energia, valor — `HistoricoPage.jsx` é placeholder
-- [ ] Recibo digital para reembolso corporativo
+- [x] Lista de sessões: data, energia, valor — `HistoricoPage.jsx` consome `GET /sessions/mine`
+      (novo endpoint). Local/duração não exibidos ainda (duração é derivável de
+      `started_at`/`ended_at`, local seria o nome do estabelecimento — falta só exibir)
+- [x] Recibo digital — expandir uma sessão finalizada mostra a decomposição completa
+      (bruto → promoção → desconto → franquia → total) via `GET /sessions/{id}/receipt`,
+      que ganhou os campos da decomposição (antes só devolvia o snapshot, sem os valores
+      intermediários em R$)
 - [ ] Gráfico de consumo mensal
 - [ ] Relatório mensal de sustentabilidade: kWh → km equivalentes → kg de CO₂ evitados,
       com comparativo do mês anterior, premissas declaradas e compartilhamento social
