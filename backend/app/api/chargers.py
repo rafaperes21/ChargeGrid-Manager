@@ -62,6 +62,8 @@ def get_charger_detail_view(
     financeiras/de gestao (diferente de `GET /chargers`, que e status somente-leitura)."""
     charger = db.get(Charger, charger_id)
     if charger is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Carregador nao encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Carregador nao encontrado"
+        )
     get_owned_establishment(charger.establishment_id, db, current_user)
     return get_charger_detail(db, charger, settings, hours=hours)

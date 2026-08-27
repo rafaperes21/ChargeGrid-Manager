@@ -74,7 +74,8 @@ def get_charger_detail(
             for r in readings
         ],
         recent_sessions=[
-            ChargingSessionRead.model_validate(session) for session in _recent_sessions(db, charger.id)
+            ChargingSessionRead.model_validate(session)
+            for session in _recent_sessions(db, charger.id)
         ],
         anomalies=charger_anomalies,
         ia_unavailable=ia_unavailable,
