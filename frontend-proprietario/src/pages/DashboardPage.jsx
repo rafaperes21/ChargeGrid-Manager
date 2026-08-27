@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { apiClient } from '../lib/apiClient'
 import { useAuth } from '../lib/auth'
-import { formatPowerKw, formatUpdatedAgo } from '../lib/format'
+import { formatCurrency, formatPowerKw, formatUpdatedAgo } from '../lib/format'
 
 const POWER_ALERT_THRESHOLD = 0.9
 
@@ -92,12 +92,19 @@ export function DashboardPage() {
 
           <div className="flex flex-col justify-center rounded-[22px] border border-hairline bg-white p-5 shadow-[0_4px_20px_rgba(14,10,26,0.05)]">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Receita hoje</p>
-            <p className="mt-2 text-sm text-muted-2">{data.unavailable_reason}</p>
+            <p className="mt-1.5 font-heading text-[28px] font-bold text-ink">
+              {formatCurrency(data.revenue_today)}
+            </p>
+            <p className="mt-1.5 text-[11px] text-muted-2">
+              semana {formatCurrency(data.revenue_week)} · mês {formatCurrency(data.revenue_month)}
+            </p>
           </div>
 
           <div className="flex flex-col justify-center rounded-[22px] border border-hairline bg-white p-5 shadow-[0_4px_20px_rgba(14,10,26,0.05)]">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Sessões ativas</p>
-            <p className="mt-2 text-sm text-muted-2">{data.unavailable_reason}</p>
+            <p className="mt-1.5 font-heading text-[28px] font-bold text-ink">
+              {data.active_sessions_count}
+            </p>
           </div>
         </div>
 

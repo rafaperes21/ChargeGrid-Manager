@@ -3,10 +3,11 @@ from decimal import Decimal
 
 from app.core.config import Settings
 from app.models.charger import Charger, ChargerReading
-from app.models.enums import ChargerModel, ChargerStatus, UserRole
+from app.models.enums import ChargerModel, ChargerStatus, ChargingSessionStatus, UserRole
 from app.models.establishment import Establishment
+from app.models.session import ChargingSession
 from app.models.user import User
-from app.services.dashboard import get_dashboard
+from app.services.dashboard import _revenue_breakdown, get_dashboard
 
 
 def _raise_connection_error(*args, **kwargs):
@@ -103,19 +104,105 @@ def test_dashboard_survives_ia_being_down(db_session, monkeypatch):
     assert result.anomalies == []
 
 
-def test_dashboard_revenue_and_sessions_are_explicitly_unavailable(db_session, monkeypatch):
+def test_dashboard_revenue_today_sums_only_todays_finished_sessions(db_session, monkeypatch):
     establishment = _establishment_with_readings(db_session)
     settings = Settings()
-    monkeypatch.setattr(
-        "app.services.dashboard.requests.get",
-        _raise_connection_error,
+    monkeypatch.setattr("app.services.dashboard.requests.get", _raise_connection_error)
+
+    now = datetime.now(tz=UTC)
+    charger = db_session.query(Charger).filter(Charger.establishment_id == establishment.id).one()
+    customer = User(
+        email="cliente-dash@teste.com",
+        hashed_password="x",
+        full_name="Cliente",
+        role=UserRole.customer,
     )
+    db_session.add(customer)
+    db_session.flush()
+
+    db_session.add_all(
+        [
+            ChargingSession(
+                user_id=customer.id,
+                charger_id=charger.id,
+                establishment_id=establishment.id,
+                status=ChargingSessionStatus.finished,
+                started_at=now - timedelta(hours=1),
+                ended_at=now - timedelta(minutes=30),
+                energy_kwh=Decimal("10.000"),
+                amount_due=Decimal("25.5000"),
+            ),
+            ChargingSession(
+                user_id=customer.id,
+                charger_id=charger.id,
+                establishment_id=establishment.id,
+                status=ChargingSessionStatus.finished,
+                started_at=now - timedelta(days=2, hours=1),
+                ended_at=now - timedelta(days=2),
+                energy_kwh=Decimal("8.000"),
+                amount_due=Decimal("100.0000"),
+            ),
+            ChargingSession(
+                user_id=customer.id,
+                charger_id=charger.id,
+                establishment_id=establishment.id,
+                status=ChargingSessionStatus.active,
+                started_at=now - timedelta(minutes=10),
+            ),
+        ]
+    )
+    db_session.commit()
 
     result = get_dashboard(db_session, establishment, settings)
 
-    assert result.revenue_today is None
-    assert result.active_sessions_count is None
-    assert "M3" in result.unavailable_reason
+    assert result.revenue_today == Decimal("25.5000")
+    assert result.active_sessions_count == 1
+
+
+def test_revenue_breakdown_buckets_by_local_day_week_and_month(db_session):
+    establishment = _establishment_with_readings(db_session)
+    charger = db_session.query(Charger).filter(Charger.establishment_id == establishment.id).one()
+    customer = User(
+        email="cliente-receita@teste.com",
+        hashed_password="x",
+        full_name="Cliente",
+        role=UserRole.customer,
+    )
+    db_session.add(customer)
+    db_session.flush()
+
+    # now_utc fixo (nao datetime.now()) pra nao depender do dia real em que o teste roda.
+    # 2026-06-17 e quarta-feira: semana local comeca segunda 2026-06-15, mes comeca 2026-06-01.
+    now_utc = datetime(2026, 6, 17, 18, 0, tzinfo=UTC)  # 15h local (America/Sao_Paulo, UTC-3)
+
+    sessions = [
+        (datetime(2026, 6, 17, 18, 0, tzinfo=UTC), Decimal("10.0000")),  # hoje
+        (datetime(2026, 6, 15, 18, 0, tzinfo=UTC), Decimal("20.0000")),  # segunda desta semana
+        (datetime(2026, 6, 1, 18, 0, tzinfo=UTC), Decimal("40.0000")),  # mes, fora da semana
+        (datetime(2026, 5, 31, 18, 0, tzinfo=UTC), Decimal("80.0000")),  # mes passado
+    ]
+    for ended_at, amount in sessions:
+        db_session.add(
+            ChargingSession(
+                user_id=customer.id,
+                charger_id=charger.id,
+                establishment_id=establishment.id,
+                status=ChargingSessionStatus.finished,
+                started_at=ended_at - timedelta(hours=1),
+                ended_at=ended_at,
+                energy_kwh=Decimal("5.000"),
+                amount_due=amount,
+            )
+        )
+    db_session.commit()
+
+    revenue_today, revenue_week, revenue_month = _revenue_breakdown(
+        db_session, establishment.id, now_utc
+    )
+
+    assert revenue_today == Decimal("10.0000")
+    assert revenue_week == Decimal("30.0000")
+    assert revenue_month == Decimal("70.0000")
 
 
 def test_dashboard_endpoint_requires_owner(client):

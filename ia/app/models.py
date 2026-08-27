@@ -4,10 +4,10 @@ backend (`backend/app/models/`), mas com um `Base`/metadata independente, ja que
 efetivamente usa. Nunca escreve nestas tabelas - ver `app/db/session.py`."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, time
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Time
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -25,8 +25,11 @@ class Establishment(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     name: Mapped[str] = mapped_column(String(150))
     kind: Mapped[str] = mapped_column(String(30))
+    max_increase_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2))
+    max_decrease_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2))
 
     chargers: Mapped[list["Charger"]] = relationship(back_populates="establishment")
+    tariff_rules: Mapped[list["TariffRule"]] = relationship(back_populates="establishment")
 
 
 class Charger(Base):
@@ -41,6 +44,26 @@ class Charger(Base):
 
     establishment: Mapped["Establishment"] = relationship(back_populates="chargers")
     readings: Mapped[list["ChargerReading"]] = relationship(back_populates="charger")
+
+
+class TariffRule(Base):
+    """So os campos que a regra de precificacao sugerida (secao 2 da skill) precisa pra
+    achar a faixa vigente num (dia da semana, hora local) - mesma logica de
+    `backend/app/services/tariffs.py`, duplicada aqui de proposito (servico read-only,
+    deployado separado, nunca importa codigo do backend)."""
+
+    __tablename__ = "tariff_rules"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    establishment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("establishments.id"))
+    name: Mapped[str] = mapped_column(String(100))
+    days_of_week: Mapped[str] = mapped_column(String(20))
+    start_time_local: Mapped[time] = mapped_column(Time)
+    end_time_local: Mapped[time] = mapped_column(Time)
+    price_per_kwh: Mapped[Decimal] = mapped_column(Numeric(12, 4))
+    is_special: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    establishment: Mapped["Establishment"] = relationship(back_populates="tariff_rules")
 
 
 class ChargerReading(Base):

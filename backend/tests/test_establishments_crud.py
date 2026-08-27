@@ -24,10 +24,64 @@ def test_create_and_list_establishment_happy_path(client):
     )
     assert create_response.status_code == 201
     establishment_id = create_response.json()["id"]
+    assert create_response.json()["max_increase_pct"] == "20.00"
+    assert create_response.json()["max_decrease_pct"] == "20.00"
 
     list_response = client.get("/establishments/me", headers=headers)
     assert list_response.status_code == 200
     assert any(item["id"] == establishment_id for item in list_response.json())
+
+
+def test_update_establishment_pricing_limits(client):
+    token = _owner_token(client, email="dono-limites@teste.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    establishment_id = client.post(
+        "/establishments",
+        json={
+            "name": "Estacionamento Limites",
+            "kind": "estacionamento",
+            "phase": "trifasico",
+            "grid_connection_kw": "75.000",
+            "power_limit_kw": "40.000",
+        },
+        headers=headers,
+    ).json()["id"]
+
+    response = client.patch(
+        f"/establishments/{establishment_id}",
+        json={"max_increase_pct": "10.00"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["max_increase_pct"] == "10.00"
+    assert response.json()["max_decrease_pct"] == "20.00"
+
+
+def test_update_establishment_requires_ownership(client):
+    owner_token = _owner_token(client, email="dono-a@teste.com")
+    other_owner_token = _owner_token(client, email="dono-b@teste.com")
+
+    establishment_id = client.post(
+        "/establishments",
+        json={
+            "name": "Estacionamento A",
+            "kind": "estacionamento",
+            "phase": "trifasico",
+            "grid_connection_kw": "75.000",
+            "power_limit_kw": "40.000",
+        },
+        headers={"Authorization": f"Bearer {owner_token}"},
+    ).json()["id"]
+
+    response = client.patch(
+        f"/establishments/{establishment_id}",
+        json={"max_increase_pct": "5.00"},
+        headers={"Authorization": f"Bearer {other_owner_token}"},
+    )
+
+    assert response.status_code == 404
 
 
 def test_customer_can_list_all_establishments(client):

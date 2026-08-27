@@ -15,11 +15,12 @@ A tela que o jurado vai olhar primeiro. Desktop-first, densa, operacional.
 - [x] Mapa visual das vagas: livre (verde) · carregando (azul + progresso) · problema (vermelho)
       · reservado (âmbar) · offline (cinza) — sempre com ícone e rótulo, nunca só cor
 - [x] Potência total consumida agora vs. limite configurado, com o limiar marcado na barra
-- [ ] Receita do dia, semana e mês — `DashboardResponse.revenue_today` continua sempre `None`.
-      O motor de tarifação (M3) já existe (`services/sessions.py`/`pricing.py`,
-      `GET /sessions?establishment_id=`), mas `services/dashboard.py` ainda não foi atualizado
-      pra consumi-lo — a lacuna agora é "ninguém plugou", não "não existe"
-- [ ] Número de sessões ativas — mesma razão acima, sempre `None`
+- [x] Receita do dia, semana e mês — `DashboardResponse.revenue_today`/`revenue_week`/
+      `revenue_month` somam `amount_due` das sessões `finished` cujo `ended_at` cai no dia,
+      semana (segunda-feira local) e mês corrente em horário local (America/Sao_Paulo)
+      (`services/dashboard._revenue_breakdown`)
+- [x] Número de sessões ativas — `DashboardResponse.active_sessions_count` conta sessões com
+      `status == active` no estabelecimento (`services/dashboard.py`)
 - [x] **Alerta ao atingir 90 % da carga configurada** — visível e persistente
 - [x] Indicador "atualizado há X" perto de todo dado ao vivo
 - [x] Refetch a cada 15–30 s (`refetchInterval: 20_000`)

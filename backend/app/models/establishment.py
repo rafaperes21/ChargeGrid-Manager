@@ -27,6 +27,12 @@ class Establishment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     grid_connection_kw: Mapped[Decimal] = mapped_column(Numeric(12, 3))
     power_limit_kw: Mapped[Decimal] = mapped_column(Numeric(12, 3))
 
+    # Limites da sugestao de precificacao dinamica do modulo de IA (skill
+    # ml-previsao-e-anomalias secao 2). So limitam a SUGESTAO exibida ao proprietario -
+    # a IA nunca aplica tarifa sozinha, entao nao ha risco de estouro automatico.
+    max_increase_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("20.00"))
+    max_decrease_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("20.00"))
+
     owner: Mapped["User"] = relationship(back_populates="owned_establishments")
     chargers: Mapped[list["Charger"]] = relationship(back_populates="establishment")
     plans: Mapped[list["Plan"]] = relationship(back_populates="establishment")
