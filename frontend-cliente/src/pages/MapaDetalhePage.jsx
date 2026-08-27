@@ -1,0 +1,235 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Button } from '../components/ui/Button'
+import { Card } from '../components/ui/Card'
+import { StatusBadge } from '../components/ui/StatusBadge'
+import { ApiError, apiClient } from '../lib/apiClient'
+import { formatDateTime, formatPowerKw, formatUpdatedAgo } from '../lib/format'
+
+function secondsSince(iso) {
+  if (!iso) return null
+  return (Date.now() - new Date(iso).getTime()) / 1000
+}
+
+// Tela somente-leitura de status por carregador (Tarefa 2.2) - reaproveita o mesmo dado
+// de `GET /establishments/{id}/chargers-status`, que por sua vez reusa a leitura do
+// dashboard do proprietario (`services/dashboard.get_chargers_status`), sem receita nem
+// anomalias por nao ser dado do dono.
+function ReservationForm({ chargerId, onDone }) {
+  const queryClient = useQueryClient()
+  const [start, setStart] = useState('')
+  const [durationMin, setDurationMin] = useState(60)
+  const [errorMessage, setErrorMessage] = useState(null)
+
+  const mutation = useMutation({
+    mutationFn: () => {
+      const scheduledStart = new Date(start)
+      const scheduledEnd = new Date(scheduledStart.getTime() + durationMin * 60_000)
+      return apiClient.post('/reservations', {
+        charger_id: chargerId,
+        scheduled_start: scheduledStart.toISOString(),
+        scheduled_end: scheduledEnd.toISOString(),
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reservations-mine'] })
+      onDone()
+    },
+    onError: (error) => {
+      setErrorMessage(
+        error instanceof ApiError && error.status === 409
+          ? 'Já existe uma reserva para este carregador nesse horário.'
+          : 'Não foi possível criar a reserva. Confira o horário escolhido.'
+      )
+    },
+  })
+
+  const minDateTime = new Date(Date.now() + 5 * 60_000).toISOString().slice(0, 16)
+
+  return (
+    <div className="mt-3 flex flex-col gap-2 rounded-xl bg-cream p-3">
+      <label className="text-xs font-semibold text-ink-soft">
+        Horário de início
+        <input
+          type="datetime-local"
+          value={start}
+          min={minDateTime}
+          onChange={(event) => setStart(event.target.value)}
+          className="mt-1 w-full rounded-lg border border-hairline px-3 py-2 text-sm"
+        />
+      </label>
+      <label className="text-xs font-semibold text-ink-soft">
+        Duração
+        <select
+          value={durationMin}
+          onChange={(event) => setDurationMin(Number(event.target.value))}
+          className="mt-1 w-full rounded-lg border border-hairline px-3 py-2 text-sm"
+        >
+          <option value={30}>30 min</option>
+          <option value={60}>1 hora</option>
+          <option value={120}>2 horas</option>
+        </select>
+      </label>
+      {errorMessage && <p className="text-xs text-status-problema">{errorMessage}</p>}
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          onClick={() => mutation.mutate()}
+          disabled={!start || mutation.isPending}
+          className="flex-1"
+        >
+          Confirmar
+        </Button>
+        <Button type="button" variant="secondary" onClick={onDone} className="flex-1">
+          Cancelar
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function ChargerCard({ charger, onJoinQueue, joinPending, reservingChargerId, setReservingChargerId }) {
+  const secondsAgo = secondsSince(charger.latest_reading_at)
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-ink">{charger.spot_label}</p>
+          <p className="text-xs text-muted-2">{charger.model}</p>
+        </div>
+        <StatusBadge status={charger.status} />
+      </div>
+
+      {secondsAgo != null && (
+        <p className="mt-1 text-[11px] text-muted-3">
+          {formatUpdatedAgo(secondsAgo)}
+          {charger.status === 'carregando' &&
+            charger.latest_power_kw != null &&
+            ` · ${formatPowerKw(charger.latest_power_kw)}`}
+        </p>
+      )}
+
+      {charger.status === 'livre' && reservingChargerId !== charger.id && (
+        <div className="mt-3 flex gap-2">
+          <Button onClick={() => onJoinQueue(charger)} disabled={joinPending} className="flex-1">
+            Entrar na fila
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setReservingChargerId(charger.id)}
+            className="flex-1"
+          >
+            Reservar horário
+          </Button>
+        </div>
+      )}
+
+      {reservingChargerId === charger.id && (
+        <ReservationForm chargerId={charger.id} onDone={() => setReservingChargerId(null)} />
+      )}
+    </Card>
+  )
+}
+
+export function MapaDetalhePage() {
+  const { establishmentId } = useParams()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [reservingChargerId, setReservingChargerId] = useState(null)
+  const [joinError, setJoinError] = useState(null)
+
+  const { data: establishments } = useQuery({
+    queryKey: ['establishments'],
+    queryFn: () => apiClient.get('/establishments'),
+  })
+  const establishment = establishments?.find((item) => item.id === establishmentId)
+
+  const { data: chargers, isLoading } = useQuery({
+    queryKey: ['chargers-status', establishmentId],
+    queryFn: () => apiClient.get(`/establishments/${establishmentId}/chargers-status`),
+    refetchInterval: 20_000,
+  })
+
+  const { data: myReservations } = useQuery({
+    queryKey: ['reservations-mine'],
+    queryFn: () => apiClient.get('/reservations/mine'),
+  })
+
+  const chargerIds = useMemo(() => new Set((chargers ?? []).map((c) => c.id)), [chargers])
+  const reservationsHere = (myReservations ?? []).filter(
+    (reservation) => chargerIds.has(reservation.charger_id) && reservation.status === 'pending'
+  )
+
+  const joinMutation = useMutation({
+    mutationFn: () => apiClient.post('/queue/join', { establishment_id: establishmentId }),
+    onSuccess: () => navigate('/fila'),
+    onError: (error) => {
+      setJoinError(
+        error instanceof ApiError && error.status === 409
+          ? 'Você já está na fila ou tem uma sessão em andamento.'
+          : 'Não foi possível entrar na fila agora.'
+      )
+    },
+  })
+
+  const cancelReservationMutation = useMutation({
+    mutationFn: (reservationId) => apiClient.delete(`/reservations/${reservationId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reservations-mine'] }),
+  })
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <div className="bg-ink-fixed px-5 pb-4 pt-[18px] text-white">
+        <Link to="/mapa" className="text-xs text-white/70">
+          ← Mapa
+        </Link>
+        <p className="mt-1 text-[15px] font-semibold">{establishment?.name ?? 'Estabelecimento'}</p>
+      </div>
+
+      <div className="flex flex-col gap-3 p-5">
+        {isLoading && <p className="text-sm text-muted">Carregando…</p>}
+        {joinError && <p className="text-xs text-status-problema">{joinError}</p>}
+
+        {reservationsHere.length > 0 && (
+          <Card>
+            <p className="text-sm font-semibold text-ink">Suas reservas aqui</p>
+            <div className="mt-2 flex flex-col gap-2">
+              {reservationsHere.map((reservation) => {
+                const charger = chargers?.find((c) => c.id === reservation.charger_id)
+                return (
+                  <div key={reservation.id} className="flex items-center justify-between text-xs text-ink-soft">
+                    <span>
+                      {charger?.spot_label} · {formatDateTime(reservation.scheduled_start)}
+                    </span>
+                    <button
+                      type="button"
+                      className="font-semibold text-status-problema"
+                      onClick={() => cancelReservationMutation.mutate(reservation.id)}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+        )}
+
+        {chargers?.map((charger) => (
+          <ChargerCard
+            key={charger.id}
+            charger={charger}
+            onJoinQueue={() => joinMutation.mutate()}
+            joinPending={joinMutation.isPending}
+            reservingChargerId={reservingChargerId}
+            setReservingChargerId={setReservingChargerId}
+          />
+        ))}
+
+        {chargers?.length === 0 && <p className="text-sm text-muted">Nenhum carregador cadastrado.</p>}
+      </div>
+    </div>
+  )
+}

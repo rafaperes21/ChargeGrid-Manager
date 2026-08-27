@@ -4,6 +4,7 @@ from app.models.charger import Charger, ChargerReading
 from app.models.establishment import Establishment
 from app.models.invoice import Invoice
 from app.models.queue import QueueEntry
+from app.models.reservation import Reservation
 from app.models.session import ChargingSession
 from app.models.tariff import Plan, TariffRule
 from app.models.user import Company, Subscription, User
@@ -16,6 +17,7 @@ __all__ = [
     "Establishment",
     "Invoice",
     "QueueEntry",
+    "Reservation",
     "ChargingSession",
     "Plan",
     "TariffRule",

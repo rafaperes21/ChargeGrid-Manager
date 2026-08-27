@@ -1,0 +1,32 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd \"/home/gabriel/goodwe - projeto/backend\" && exec .venv/bin/uvicorn app.main:app --reload --port 8000"
+      ],
+      "port": 8000
+    },
+    {
+      "name": "frontend-cliente",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd \"/home/gabriel/goodwe - projeto/frontend-cliente\" && exec npm run dev -- --port 5173"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "frontend-proprietario",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd \"/home/gabriel/goodwe - projeto/frontend-proprietario\" && exec npm run dev -- --port 5174"
+      ],
+      "port": 5174
+    }
+  ]
+}

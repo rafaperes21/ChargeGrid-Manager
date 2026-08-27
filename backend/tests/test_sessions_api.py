@@ -87,6 +87,36 @@ def test_start_session_via_api(client, db_session):
     assert body["charger_id"] == charger_id
 
 
+def test_update_payment_method_da_sessao_atual(client, db_session):
+    _, charger_id = _setup_livre_charger(client, db_session)
+    customer_token = _register_and_login(client, "cliente-pagamento@teste.com", "customer")
+    _set_customer_rfid(client, customer_token)
+    client.post(
+        "/sessions/start",
+        json={"charger_id": charger_id},
+        headers={"Authorization": f"Bearer {customer_token}"},
+    )
+
+    response = client.patch(
+        "/sessions/current/payment-method",
+        json={"payment_method": "pix"},
+        headers={"Authorization": f"Bearer {customer_token}"},
+    )
+    assert response.status_code == 200
+    assert response.json()["payment_method"] == "pix"
+
+
+def test_update_payment_method_404_sem_sessao_ativa(client):
+    customer_token = _register_and_login(client, "cliente-sem-sessao@teste.com", "customer")
+
+    response = client.patch(
+        "/sessions/current/payment-method",
+        json={"payment_method": "pix"},
+        headers={"Authorization": f"Bearer {customer_token}"},
+    )
+    assert response.status_code == 404
+
+
 def test_start_session_falha_sem_rfid(client, db_session):
     _, charger_id = _setup_livre_charger(client, db_session)
     customer_token = _register_and_login(client, "cliente-sem-rfid@teste.com", "customer")

@@ -70,16 +70,10 @@ def _make_charger(db, establishment: Establishment, *, status: ChargerStatus) ->
     return charger
 
 
-def _make_subscription_with_priority(
-    db, user: User, establishment: Establishment, priority: int
+def _make_subscription_with_kind(
+    db, user: User, establishment: Establishment, kind: PlanKind
 ) -> None:
-    plan = Plan(
-        establishment_id=establishment.id,
-        name=f"Plano prioridade {priority}",
-        kind=PlanKind.mensal,
-        price=Decimal("49.90"),
-        priority=priority,
-    )
+    plan = Plan(establishment_id=establishment.id, kind=kind, enabled=True)
     db.add(plan)
     db.commit()
     db.refresh(plan)
@@ -105,7 +99,7 @@ def test_join_queue_ordena_por_prioridade_depois_ordem_de_chegada(db_session, es
     user_a = _make_user(db_session, email="a@teste.com")
     user_b = _make_user(db_session, email="b@teste.com")
     user_c = _make_user(db_session, email="c@teste.com")
-    _make_subscription_with_priority(db_session, user_b, establishment, priority=2)
+    _make_subscription_with_kind(db_session, user_b, establishment, PlanKind.trimestral)
 
     join_queue(db_session, user_a, establishment.id)
     join_queue(db_session, user_b, establishment.id)

@@ -11,6 +11,7 @@ from app.models.enums import ChargerModel, ChargerStatus, PlanKind, UserRole
 from app.models.establishment import Establishment
 from app.models.tariff import Plan
 from app.models.user import User
+from app.services.plan_catalog import provision_plans_for_establishment
 
 
 def run() -> None:
@@ -38,6 +39,10 @@ def run() -> None:
             phase="trifasico",
             grid_connection_kw=Decimal("75.000"),
             power_limit_kw=Decimal("40.000"),
+            # Av. Paulista, 1578 - Sao Paulo/SP (coordenada real, so pra demo do mapa
+            # ter um ponto de referencia coerente - Tarefa 2.1 do M10).
+            latitude=Decimal("-23.561684"),
+            longitude=Decimal("-46.655981"),
         )
         db.add(establishment)
         db.flush()
@@ -55,24 +60,16 @@ def run() -> None:
         ]
         db.add_all(chargers)
 
-        plans = [
-            Plan(
-                establishment_id=establishment.id,
-                name="Avulso",
-                kind=PlanKind.avulso,
-                priority=0,
-            ),
-            Plan(
-                establishment_id=establishment.id,
-                name="Mensal",
-                kind=PlanKind.mensal,
-                price=Decimal("149.9000"),
-                free_kwh_allowance=Decimal("50.000"),
-                discount_pct=Decimal("10.00"),
-                priority=1,
-            ),
-        ]
-        db.add_all(plans)
+        # Catalogo fixo da plataforma (services/plan_catalog.py) - avulso vem habilitado por
+        # padrao; habilita mensal tambem pra demo ter um plano pago de exemplo.
+        provision_plans_for_establishment(db, establishment.id)
+        mensal = (
+            db.query(Plan)
+            .filter(Plan.establishment_id == establishment.id, Plan.kind == PlanKind.mensal)
+            .one()
+        )
+        mensal.enabled = True
+        db.commit()
 
         customer = User(
             email="cliente@chargegrid.demo",

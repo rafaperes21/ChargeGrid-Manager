@@ -15,6 +15,7 @@ from app.models.enums import ChargingSessionStatus
 from app.models.establishment import Establishment
 from app.models.session import ChargingSession
 from app.schemas.dashboard import ChargerDashboardItem, DashboardAnomaly, DashboardResponse
+from app.services.reservations import sync_reservations
 
 LOCAL_TZ = ZoneInfo("America/Sao_Paulo")
 
@@ -80,7 +81,7 @@ def _latest_reading(db: Session, charger_id) -> ChargerReading | None:
     )
 
 
-def _fetch_anomalies(establishment_id, settings: Settings) -> tuple[list[DashboardAnomaly], bool]:
+def fetch_anomalies(establishment_id, settings: Settings) -> tuple[list[DashboardAnomaly], bool]:
     url = f"{settings.ia_service_url}/anomalies/establishments/{establishment_id}"
     try:
         response = requests.get(url, params={"lookback_hours": 168}, timeout=10)
@@ -101,23 +102,22 @@ def _fetch_anomalies(establishment_id, settings: Settings) -> tuple[list[Dashboa
     return anomalies, False
 
 
-def get_dashboard(
-    db: Session, establishment: Establishment, settings: Settings
-) -> DashboardResponse:
+def get_chargers_status(db: Session, establishment_id) -> list[ChargerDashboardItem]:
+    """Status + ultima leitura de cada carregador do estabelecimento - mesma leitura usada
+    no dashboard do proprietario (`get_dashboard` abaixo), mas sem receita/anomalias, pra
+    poder ser exposta como somente-leitura pro portal do cliente (mapa, Tarefa 2.2 do M10).
+    Nao e dado financeiro nem sensivel, mesmo raciocinio ja usado em `GET /chargers`."""
+    sync_reservations(db, establishment_id)
     chargers = (
         db.query(Charger)
-        .filter(Charger.establishment_id == establishment.id)
+        .filter(Charger.establishment_id == establishment_id)
         .order_by(Charger.spot_label)
         .all()
     )
 
     items = []
-    total_power_kw = Decimal("0.000")
     for charger in chargers:
         reading = _latest_reading(db, charger.id)
-        latest_power = reading.power_kw if reading else None
-        if latest_power is not None:
-            total_power_kw += latest_power
         items.append(
             ChargerDashboardItem(
                 id=charger.id,
@@ -126,10 +126,20 @@ def get_dashboard(
                 model=charger.model,
                 status=charger.status,
                 nominal_power_kw=charger.nominal_power_kw,
-                latest_power_kw=latest_power,
+                latest_power_kw=reading.power_kw if reading else None,
                 latest_reading_at=reading.timestamp if reading else None,
             )
         )
+    return items
+
+
+def get_dashboard(
+    db: Session, establishment: Establishment, settings: Settings
+) -> DashboardResponse:
+    items = get_chargers_status(db, establishment.id)
+    total_power_kw = sum(
+        (item.latest_power_kw or Decimal("0.000") for item in items), Decimal("0.000")
+    )
 
     power_pct = None
     if establishment.power_limit_kw > 0:
@@ -137,7 +147,7 @@ def get_dashboard(
             Decimal("0.0001"), rounding=ROUND_HALF_UP
         )
 
-    anomalies, ia_unavailable = _fetch_anomalies(establishment.id, settings)
+    anomalies, ia_unavailable = fetch_anomalies(establishment.id, settings)
     now_utc = datetime.now(tz=UTC)
     revenue_today, revenue_week, revenue_month = _revenue_breakdown(
         db, establishment.id, now_utc

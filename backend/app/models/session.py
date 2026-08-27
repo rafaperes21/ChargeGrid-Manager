@@ -8,7 +8,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
-from app.models.enums import ChargingSessionStatus
+from app.models.enums import ChargingSessionStatus, PaymentMethod
 
 if TYPE_CHECKING:
     from app.models.charger import Charger
@@ -44,6 +44,12 @@ class ChargingSession(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     tariff_rate_applied: Mapped[Decimal | None] = mapped_column(Numeric(12, 4))
     plan_discount_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     free_minutes_applied: Mapped[int | None] = mapped_column(Integer)
+
+    # Declarativo (M3, Tarefa 4.3): registra o que o cliente escolheu, nunca processa
+    # pagamento de verdade - mesmo espirito do snapshot de tarifa, sem gateway/PCI/latencia.
+    payment_method: Mapped[PaymentMethod | None] = mapped_column(
+        SAEnum(PaymentMethod, name="payment_method"), default=None
+    )
 
     user: Mapped["User"] = relationship()
     charger: Mapped["Charger"] = relationship()

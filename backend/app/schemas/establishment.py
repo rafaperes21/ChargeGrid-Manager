@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
+from app.models.enums import PaymentMethod
+
 
 class EstablishmentBase(BaseModel):
     name: str
@@ -12,6 +14,9 @@ class EstablishmentBase(BaseModel):
     power_limit_kw: Decimal
     max_increase_pct: Decimal = Decimal("20.00")
     max_decrease_pct: Decimal = Decimal("20.00")
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
+    accepted_payment_methods: list[PaymentMethod] = []
 
 
 class EstablishmentCreate(EstablishmentBase):
@@ -21,6 +26,9 @@ class EstablishmentCreate(EstablishmentBase):
 class EstablishmentUpdate(BaseModel):
     max_increase_pct: Decimal | None = None
     max_decrease_pct: Decimal | None = None
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
+    accepted_payment_methods: list[PaymentMethod] | None = None
 
 
 class EstablishmentRead(EstablishmentBase):

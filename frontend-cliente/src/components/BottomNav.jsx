@@ -74,7 +74,7 @@ function NavItem({ route }) {
 
 export function BottomNav() {
   return (
-    <div className="flex w-full border-t border-hairline bg-white font-body">
+    <div className="flex w-full border-t border-hairline bg-surface font-body">
       {routes.map((route) => (
         <NavItem key={route.path} route={route} />
       ))}

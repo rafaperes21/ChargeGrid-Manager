@@ -6,6 +6,7 @@ import { AjudaPage } from './pages/AjudaPage'
 import { FilaPage } from './pages/FilaPage'
 import { HistoricoPage } from './pages/HistoricoPage'
 import { LoginPage } from './pages/LoginPage'
+import { MapaDetalhePage } from './pages/MapaDetalhePage'
 import { MapaPage } from './pages/MapaPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { SessaoPage } from './pages/SessaoPage'
@@ -59,6 +60,7 @@ function App() {
                   />
                 )
               })}
+              <Route path="/mapa/:establishmentId" element={<MapaDetalhePage />} />
             </Route>
           </Routes>
         </BrowserRouter>

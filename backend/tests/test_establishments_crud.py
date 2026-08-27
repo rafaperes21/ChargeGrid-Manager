@@ -59,6 +59,53 @@ def test_update_establishment_pricing_limits(client):
     assert response.json()["max_decrease_pct"] == "20.00"
 
 
+def test_create_establishment_sem_payment_methods_comeca_vazio(client):
+    token = _owner_token(client, email="dono-pagamento1@teste.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = client.post(
+        "/establishments",
+        json={
+            "name": "Estacionamento Pagamento",
+            "kind": "estacionamento",
+            "phase": "trifasico",
+            "grid_connection_kw": "75.000",
+            "power_limit_kw": "40.000",
+        },
+        headers=headers,
+    )
+    assert response.status_code == 201
+    assert response.json()["accepted_payment_methods"] == []
+
+
+def test_update_accepted_payment_methods(client):
+    token = _owner_token(client, email="dono-pagamento2@teste.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    establishment_id = client.post(
+        "/establishments",
+        json={
+            "name": "Estacionamento Pagamento 2",
+            "kind": "estacionamento",
+            "phase": "trifasico",
+            "grid_connection_kw": "75.000",
+            "power_limit_kw": "40.000",
+        },
+        headers=headers,
+    ).json()["id"]
+
+    response = client.patch(
+        f"/establishments/{establishment_id}",
+        json={"accepted_payment_methods": ["pix", "cartao_credito"]},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    assert set(response.json()["accepted_payment_methods"]) == {"pix", "cartao_credito"}
+
+    reread = client.get(f"/establishments/{establishment_id}", headers=headers)
+    assert set(reread.json()["accepted_payment_methods"]) == {"pix", "cartao_credito"}
+
+
 def test_update_establishment_requires_ownership(client):
     owner_token = _owner_token(client, email="dono-a@teste.com")
     other_owner_token = _owner_token(client, email="dono-b@teste.com")

@@ -136,8 +136,8 @@ function ChatBubble({ message }) {
       <div
         className={`max-w-[76%] px-4 py-3 text-[13px] leading-relaxed ${
           isUser
-            ? 'rounded-[16px_16px_4px_16px] bg-ink text-white'
-            : 'rounded-[16px_16px_16px_4px] border border-hairline bg-white text-ink'
+            ? 'rounded-[16px_16px_4px_16px] bg-ink-fixed text-white'
+            : 'rounded-[16px_16px_16px_4px] border border-hairline bg-surface text-ink'
         }`}
       >
         <p className="whitespace-pre-wrap">{message.content}</p>

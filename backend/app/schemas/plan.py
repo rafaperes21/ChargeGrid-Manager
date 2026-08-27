@@ -6,21 +6,23 @@ from pydantic import BaseModel
 from app.models.enums import PlanKind
 
 
-class PlanBase(BaseModel):
-    name: str
-    kind: PlanKind
-    price: Decimal | None = None
-    free_kwh_allowance: Decimal | None = None
-    discount_pct: Decimal | None = None
-    priority: int = 0
+class PlanRead(BaseModel):
+    """Mescla a linha do banco (`id`, `enabled`) com os valores fixos do catalogo da
+    plataforma (`services/plan_catalog.plan_to_read`) - nome/preco/desconto/franquia/
+    prioridade nunca vêm de input do proprietario."""
 
-
-class PlanCreate(PlanBase):
-    establishment_id: uuid.UUID
-
-
-class PlanRead(PlanBase):
     id: uuid.UUID
     establishment_id: uuid.UUID
+    kind: PlanKind
+    enabled: bool
+    name: str
+    price: Decimal | None
+    free_kwh_allowance: Decimal | None
+    discount_pct: Decimal
+    priority: int
 
     model_config = {"from_attributes": True}
+
+
+class PlanUpdate(BaseModel):
+    enabled: bool

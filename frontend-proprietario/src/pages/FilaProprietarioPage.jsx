@@ -53,14 +53,14 @@ export function FilaProprietarioPage() {
             ['Tempo médio de espera', '—'],
             ['Reservas ativas (15 min)', entries ? reservedCount : '—'],
           ].map(([label, value]) => (
-            <div key={label} className="rounded-[18px] border border-hairline bg-white p-[18px] shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+            <div key={label} className="rounded-[18px] border border-hairline bg-surface p-[18px] shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
               <p className="text-[11px] font-bold uppercase tracking-wide text-muted">{label}</p>
               <p className="mt-2 text-2xl font-bold text-muted-3">{value}</p>
             </div>
           ))}
         </div>
 
-        <div className="overflow-hidden rounded-[18px] border border-hairline bg-white shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+        <div className="overflow-hidden rounded-[18px] border border-hairline bg-surface shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
           <div className="grid grid-cols-[60px_1.4fr_1fr_1fr_140px] bg-[#F4F2FB] px-[18px] py-3">
             <span className="text-[11px] font-bold text-muted">POS.</span>
             <span className="text-[11px] font-bold text-muted">USUÁRIO</span>

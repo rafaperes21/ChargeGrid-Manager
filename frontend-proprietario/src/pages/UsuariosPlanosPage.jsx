@@ -1,25 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
-import { Button } from '../components/ui/Button'
 import { apiClient } from '../lib/apiClient'
 import { useAuth } from '../lib/auth'
 
 const PLAN_KIND_LABELS = { avulso: 'Avulso', mensal: 'Mensal', trimestral: 'Trimestral' }
 
-const EMPTY_PLAN_FORM = {
-  name: '',
-  kind: 'mensal',
-  price: '',
-  free_kwh_allowance: '',
-  discount_pct: '',
-  priority: 1,
+function PlanToggle({ plan, onToggle, disabled }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={plan.enabled}
+      aria-label={`${plan.enabled ? 'Desativar' : 'Ativar'} plano ${PLAN_KIND_LABELS[plan.kind]}`}
+      disabled={disabled}
+      onClick={() => onToggle(plan)}
+      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+        plan.enabled ? 'bg-brand' : 'bg-hairline'
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 h-4 w-4 rounded-full bg-surface shadow transition-transform ${
+          plan.enabled ? 'translate-x-[18px]' : 'translate-x-0.5'
+        }`}
+      />
+    </button>
+  )
 }
 
 export function UsuariosPlanosPage() {
   const { establishment } = useAuth()
   const queryClient = useQueryClient()
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState(EMPTY_PLAN_FORM)
 
   const { data: plans } = useQuery({
     queryKey: ['plans', establishment?.id],
@@ -32,13 +41,9 @@ export function UsuariosPlanosPage() {
     queryFn: () => apiClient.get('/users'),
   })
 
-  const createPlanMutation = useMutation({
-    mutationFn: (payload) => apiClient.post('/plans', payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['plans', establishment?.id] })
-      setForm(EMPTY_PLAN_FORM)
-      setShowForm(false)
-    },
+  const togglePlanMutation = useMutation({
+    mutationFn: ({ id, enabled }) => apiClient.patch(`/plans/${id}`, { enabled }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['plans', establishment?.id] }),
   })
 
   const toggleBlockedMutation = useMutation({
@@ -46,118 +51,61 @@ export function UsuariosPlanosPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['customers'] }),
   })
 
-  function handleSubmit(event) {
-    event.preventDefault()
-    createPlanMutation.mutate({
-      establishment_id: establishment.id,
-      name: form.name,
-      kind: form.kind,
-      price: form.price || null,
-      free_kwh_allowance: form.free_kwh_allowance || null,
-      discount_pct: form.discount_pct || null,
-      priority: Number(form.priority),
-    })
-  }
-
   if (!establishment) return null
+
+  const sortedPlans = plans ? [...plans].sort((a, b) => a.priority - b.priority) : []
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex items-center justify-between px-8 pt-7">
-        <div>
-          <h1 className="font-heading text-[21px] font-bold text-ink">Usuários e planos</h1>
-          <p className="mt-1 text-[13px] text-muted-2">Cartões RFID cadastrados e planos de assinatura</p>
-        </div>
-        <Button onClick={() => setShowForm((v) => !v)}>+ Novo plano</Button>
+      <div className="px-8 pt-7">
+        <h1 className="font-heading text-[21px] font-bold text-ink">Usuários e planos</h1>
+        <p className="mt-1 text-[13px] text-muted-2">Cartões RFID cadastrados e planos de assinatura</p>
       </div>
 
       <div className="flex flex-col gap-6 p-8">
-        {showForm && (
-          <form
-            onSubmit={handleSubmit}
-            className="flex flex-col gap-3 rounded-[18px] border border-hairline bg-white p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]"
-          >
-            <div className="grid grid-cols-2 gap-3">
-              <label className="flex flex-col gap-1 text-sm text-muted-2">
-                Nome
-                <input
-                  required
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="rounded-md border border-hairline px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-muted-2">
-                Tipo
-                <select
-                  value={form.kind}
-                  onChange={(e) => setForm({ ...form, kind: e.target.value })}
-                  className="rounded-md border border-hairline px-3 py-2 text-sm"
-                >
-                  <option value="avulso">Avulso</option>
-                  <option value="mensal">Mensal</option>
-                  <option value="trimestral">Trimestral</option>
-                </select>
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-muted-2">
-                Mensalidade (R$)
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.price}
-                  onChange={(e) => setForm({ ...form, price: e.target.value })}
-                  className="rounded-md border border-hairline px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-muted-2">
-                Desconto (%)
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.discount_pct}
-                  onChange={(e) => setForm({ ...form, discount_pct: e.target.value })}
-                  className="rounded-md border border-hairline px-3 py-2 text-sm"
-                />
-              </label>
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit" disabled={createPlanMutation.isPending}>
-                Criar plano
-              </Button>
-              <Button variant="ghost" type="button" onClick={() => setShowForm(false)}>
-                Cancelar
-              </Button>
-            </div>
-          </form>
-        )}
-
         <div>
-          <h2 className="mb-3 font-heading text-[15px] font-bold text-ink">Planos</h2>
+          <h2 className="mb-1 font-heading text-[15px] font-bold text-ink">Planos</h2>
+          <p className="mb-3 text-xs text-muted-2">
+            Catálogo definido pela plataforma — escolha quais níveis este estabelecimento oferece.
+            Valores e regras não são editáveis por aqui.
+          </p>
           <div className="grid grid-cols-3 gap-4">
-            {plans?.map((plan) => (
+            {sortedPlans.map((plan) => (
               <div
                 key={plan.id}
-                className="rounded-[18px] border border-hairline bg-white p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]"
+                className={`rounded-[18px] border p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)] transition-opacity ${
+                  plan.enabled ? 'border-brand bg-surface' : 'border-hairline bg-surface opacity-60'
+                }`}
               >
-                <p className="text-xs font-bold uppercase tracking-wide text-muted">
-                  {PLAN_KIND_LABELS[plan.kind]}
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted">
+                    {PLAN_KIND_LABELS[plan.kind]}
+                  </p>
+                  <PlanToggle
+                    plan={plan}
+                    disabled={togglePlanMutation.isPending}
+                    onToggle={(p) => togglePlanMutation.mutate({ id: p.id, enabled: !p.enabled })}
+                  />
+                </div>
                 <p className="mt-2 text-2xl font-bold text-ink">
                   {plan.price ? `R$ ${Number(plan.price).toFixed(2)}` : 'Tarifa padrão'}
                   {plan.price && <span className="text-xs font-medium text-muted">/mês</span>}
                 </p>
-                {plan.discount_pct && (
+                {Number(plan.discount_pct) > 0 && (
                   <p className="mt-1 text-xs text-muted-2">{Number(plan.discount_pct)}% de desconto na tarifa vigente</p>
+                )}
+                {plan.free_kwh_allowance && (
+                  <p className="mt-1 text-xs text-muted-2">{Number(plan.free_kwh_allowance)} kWh de franquia mensal</p>
                 )}
               </div>
             ))}
-            {plans?.length === 0 && <p className="text-sm text-muted">Nenhum plano cadastrado ainda.</p>}
+            {sortedPlans.length === 0 && <p className="text-sm text-muted">Nenhum plano cadastrado ainda.</p>}
           </div>
         </div>
 
         <div>
           <h2 className="mb-3 font-heading text-[15px] font-bold text-ink">Usuários</h2>
-          <div className="overflow-hidden rounded-[18px] border border-hairline bg-white shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+          <div className="overflow-hidden rounded-[18px] border border-hairline bg-surface shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
             <div className="grid grid-cols-[1.6fr_1.4fr_1fr_100px] bg-[#F4F2FB] px-[18px] py-3">
               <span className="text-[11px] font-bold text-muted">NOME</span>
               <span className="text-[11px] font-bold text-muted">E-MAIL</span>

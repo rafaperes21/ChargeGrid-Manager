@@ -33,6 +33,25 @@ class Establishment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     max_increase_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("20.00"))
     max_decrease_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("20.00"))
 
+    # Numeric(9,6): 3 casas antes do ponto cobrem +-180 de longitude, 6 casas depois dao
+    # precisao de ~11 cm - de sobra para o Haversine do mapa do cliente (Tarefa 2.1).
+    # Opcionais: estabelecimentos antigos podem nao ter coordenada cadastrada ainda.
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), default=None)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), default=None)
+
+    # CSV de PaymentMethod (mesmo padrao de TariffRule.days_of_week) - formas de pagamento
+    # que este estabelecimento aceita (M3, Tarefa 4.2). Exposto como lista via a property
+    # abaixo; nunca processa pagamento, so registra o que o proprietario diz aceitar.
+    accepted_payment_methods_csv: Mapped[str] = mapped_column(String(120), default="")
+
+    @property
+    def accepted_payment_methods(self) -> list[str]:
+        return [v for v in self.accepted_payment_methods_csv.split(",") if v]
+
+    @accepted_payment_methods.setter
+    def accepted_payment_methods(self, values: list[str]) -> None:
+        self.accepted_payment_methods_csv = ",".join(values)
+
     owner: Mapped["User"] = relationship(back_populates="owned_establishments")
     chargers: Mapped[list["Charger"]] = relationship(back_populates="establishment")
     plans: Mapped[list["Plan"]] = relationship(back_populates="establishment")

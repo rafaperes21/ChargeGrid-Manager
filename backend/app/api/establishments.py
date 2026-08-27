@@ -7,7 +7,12 @@ from app.core.deps import get_current_user, require_owner
 from app.db.session import get_db
 from app.models.establishment import Establishment
 from app.models.user import User
+from app.schemas.dashboard import ChargerDashboardItem
 from app.schemas.establishment import EstablishmentCreate, EstablishmentRead, EstablishmentUpdate
+from app.schemas.reservation import ReservationOwnerRead, ReservationRead
+from app.services.dashboard import get_chargers_status
+from app.services.plan_catalog import provision_plans_for_establishment
+from app.services.reservations import get_establishment_reservations
 
 router = APIRouter(prefix="/establishments", tags=["establishments"])
 
@@ -34,6 +39,7 @@ def create_establishment(
     db.add(establishment)
     db.commit()
     db.refresh(establishment)
+    provision_plans_for_establishment(db, establishment.id)
     return establishment
 
 
@@ -69,6 +75,44 @@ def get_establishment(
     current_user: User = Depends(require_owner),
 ) -> Establishment:
     return get_owned_establishment(establishment_id, db, current_user)
+
+
+@router.get("/{establishment_id}/chargers-status", response_model=list[ChargerDashboardItem])
+def get_establishment_chargers_status(
+    establishment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[ChargerDashboardItem]:
+    """Status somente-leitura de cada carregador - usado na tela de detalhe do
+    estabelecimento no mapa do cliente (Tarefa 2.2 do M10). Aberto a qualquer usuario
+    autenticado, mesmo raciocinio de `GET /chargers`: status de carregador nao e dado
+    financeiro/sensivel."""
+    establishment = db.get(Establishment, establishment_id)
+    if establishment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Estabelecimento nao encontrado"
+        )
+    return get_chargers_status(db, establishment_id)
+
+
+@router.get("/{establishment_id}/reservations", response_model=list[ReservationOwnerRead])
+def list_establishment_reservations(
+    establishment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_owner),
+) -> list[ReservationOwnerRead]:
+    """Agenda de reservas antecipadas do estabelecimento (Tarefa 2.3 do M10) - pro dono
+    conseguir cruzar com quem chega no local."""
+    get_owned_establishment(establishment_id, db, current_user)
+    entries = get_establishment_reservations(db, establishment_id)
+    return [
+        ReservationOwnerRead(
+            **ReservationRead.model_validate(entry).model_dump(),
+            user_full_name=entry.user.full_name,
+            spot_label=entry.charger.spot_label,
+        )
+        for entry in entries
+    ]
 
 
 @router.patch("/{establishment_id}", response_model=EstablishmentRead)
