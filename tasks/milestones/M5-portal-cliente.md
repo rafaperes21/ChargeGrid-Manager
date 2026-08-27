@@ -21,8 +21,10 @@ Mobile-first. Usado em pé, no estacionamento, com pressa. Uma informação prin
 
 ### Sessão em andamento (prioridade máxima — tela mais vista do produto)
 - [ ] kWh carregados, % estimado da bateria, tempo estimado restante, valor acumulado, tarifa vigente
-      — `SessaoPage.jsx` é placeholder explícito ("depende de sessões reais do motor de
-      tarifação (M3)"), sem chamada à API
+      — `SessaoPage.jsx` continua placeholder, sem chamada à API. O motor de sessão (M3) já
+      existe: `POST /sessions/start` (abre por RFID) e `GET /sessions/current` (devolve
+      `status`/`energy_kwh`/`amount_due` ao vivo, já reavaliado a cada chamada) estão prontos
+      e testados — a lacuna agora é só a tela não consumir
 - [ ] Hierarquia visual: valor e tempo restante grandes; kWh e tarifa secundários
 - [ ] Sem modelo de veículo cadastrado → mostra kWh e **omite** o % de bateria
 - [ ] Barra de progresso interpolada localmente; kWh e R$ só com dado confirmado
@@ -30,7 +32,8 @@ Mobile-first. Usado em pé, no estacionamento, com pressa. Uma informação prin
 
 ### Planos de assinatura
 - [ ] Comparativo avulso / mensal (15 %, fila prioritária) / trimestral (25 %, prioridade máxima)
-      — não há tela equivalente no portal do cliente
+      — não há tela equivalente no portal do cliente; depende também de `services/plans.py`
+      (M3), deliberadamente em espera enquanto o time decide o modelo com o professor
 - [ ] Contratação e troca de plano confirmadas na interface (nunca pelo chat)
 
 ### Mapa de disponibilidade
@@ -40,8 +43,9 @@ Mobile-first. Usado em pé, no estacionamento, com pressa. Uma informação prin
 - [ ] Link de navegação via Google Maps
 
 ### Fila inteligente
-- [ ] Entrar na fila quando tudo estiver ocupado — `FilaPage.jsx` não tem chamada à API (depende
-      de M3)
+- [ ] Entrar na fila quando tudo estiver ocupado — `FilaPage.jsx` não tem chamada à API. A
+      fila (M3) já existe: `POST /queue/join`, `GET /queue/mine` (posição + reserva ativa,
+      se houver) e `DELETE /queue/mine` estão prontos e testados — falta só a tela
 - [ ] Posição em tempo real, grande e acima da dobra
 - [ ] Notificação quando a vaga liberar, com a janela de 15 min visível em contagem regressiva
 

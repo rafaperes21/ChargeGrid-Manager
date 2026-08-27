@@ -41,7 +41,14 @@ class ChargerReading(Base):
     Campos alinhados ao contrato `ChargerReading` da skill `integracao-sems-simulador`."""
 
     __tablename__ = "charger_readings"
-    __table_args__ = (Index("ix_charger_readings_charger_id_timestamp", "charger_id", "timestamp"),)
+    __table_args__ = (
+        # unique, nao so indexado: (charger_id, timestamp) e a chave de idempotencia do
+        # polling (skill integracao-sems-simulador, secao 3) - o timestamp da leitura no
+        # device nunca se repete para o mesmo carregador.
+        Index(
+            "ix_charger_readings_charger_id_timestamp", "charger_id", "timestamp", unique=True
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     charger_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("chargers.id"))

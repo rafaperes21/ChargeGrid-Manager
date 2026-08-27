@@ -1,6 +1,7 @@
 # M3 — Motor de tarifação e sessões
 
-Status: em andamento
+Status: em andamento — cálculo, sessão e fila concluídos; só falta o módulo dedicado de
+planos/assinatura, deliberadamente em espera (ver nota abaixo)
 Responsável: —
 Depende de: M1, M2
 Skill: `.claude/skills/tarifacao-e-sessoes/`
@@ -21,23 +22,31 @@ prejuízo real ou cliente cobrado a mais. **É o milestone que mais precisa de t
 - [x] Definição em horário local (`America/Sao_Paulo`), persistência em UTC
 
 ### Sessões
-- [ ] Máquina de estados `pending → active → finished | error` — modelo `ChargingSession` existe
-      (com os campos de snapshot), mas não há `services/sessions.py` nem router; o próprio
-      `services/dashboard.py` documenta em comentário que receita/sessões ativas são sempre
-      `None` porque "o motor de tarifação (M3) não existe"
-- [ ] Abertura por RFID; timeout de 5 min sem potência → `error` sem cobrança
-- [ ] Acúmulo de kWh a partir das leituras do polling
-- [ ] Detecção de fim por potência zerada em N leituras consecutivas
-- [ ] Fechamento: aplica a ordem de cálculo da skill (bruto → promoção → desconto de plano →
-      franquia → valor final) e grava **snapshot** da tarifa aplicada — não existe `pricing.py`
-- [ ] Geração de recibo digital
+- [x] Máquina de estados `pending → active → finished | error` — `services/sessions.py` +
+      router `api/sessions.py`. `sync_session` recomputa o estado a partir das leituras
+      persistidas a cada chamada (idempotente, sem cursor de progresso)
+- [x] Abertura por RFID; timeout de 5 min sem potência → `error` sem cobrança
+- [x] Acúmulo de kWh a partir das leituras do polling (trapézio, `energy_integration.py`)
+- [x] Detecção de fim por potência zerada em N leituras consecutivas (constante de engenharia,
+      não confirmada numericamente com o time — ver comentário em `sessions.py`)
+- [x] Fechamento: aplica a ordem de cálculo da skill (bruto → promoção → desconto de plano →
+      franquia → valor final) via `services/pricing.py` (função pura, sem I/O) e grava
+      **snapshot** da tarifa aplicada em `charging_sessions`
+- [x] Geração de recibo digital — `build_receipt`, derivado do snapshot, sem tabela nova;
+      exposto em `GET /sessions/{id}/receipt`
 
 ### Planos e fila
-- [ ] Assinatura, franquia em kWh, descontos de 15 % / 25 %
-- [ ] Fila: ordenação por prioridade de plano, depois ordem de chegada — modelo `QueueEntry`
-      existe, sem `services/queue.py` nem router; telas de fila dos dois portais são placeholder
-- [ ] Reserva de 15 min ao liberar vaga; expirou → volta ao fim do próprio tier
-- [ ] Reserva antecipada de 15 min retira a vaga da oferta da fila
+- [ ] Assinatura, franquia em kWh, descontos de 15 % / 25 % — **em espera**: o time está
+      definindo com o professor a melhor forma de modelar isso antes de implementar
+      `services/plans.py`. Os modelos `Plan`/`Subscription` e o CRUD (`api/plans.py`) já
+      existem; sem assinatura ativa, sessões e fila tratam o cliente como `avulso` (sem
+      desconto, sem franquia) — não há regressão, só falta a lógica de ciclo dedicada
+- [x] Fila: ordenação por prioridade de plano, depois ordem de chegada — `services/queue.py` +
+      router `api/queue.py`
+- [x] Reserva de 15 min ao liberar vaga; expirou → volta ao fim do próprio tier (mesma
+      prioridade, chegada agora — nunca sai da fila por perder a vez)
+- [ ] Reserva antecipada de 15 min retira a vaga da oferta da fila — mecanismo distinto do
+      acima (cliente reservar um horário futuro sem estar na fila ao vivo), não modelado
 
 ## Plano de execução
 
@@ -76,17 +85,35 @@ fluindo). É o milestone com mais teste unitário exigido — não adiar os test
 
 ## Critérios de aceite
 
-- Suite de testes unitários cobrindo, no mínimo:
-  - sessão que atravessa a virada de faixa mantém a tarifa do início
-  - faixa cruzando a meia-noite calcula certo
-  - promoção + desconto de plano aplicados na ordem correta (não acumulados sobre o bruto)
-  - franquia abatida em kWh antes da conversão em dinheiro
-  - franquia excedida cobra o excedente com desconto do plano
-  - fila: assinante trimestral entra depois de um avulso e é atendido antes
-  - sessão em `error` não gera cobrança
-- Extrato de um mês fechado permanece idêntico depois de alterar a tabela de tarifas.
-- Sessão completa ponta a ponta com o simulador: abre por RFID, acumula, fecha, valor confere
-  com o cálculo manual.
+- [x] Suite de testes unitários cobrindo, no mínimo:
+  - [x] sessão que atravessa a virada de faixa mantém a tarifa do início (tarifa resolvida
+        uma única vez, em `started_at`, nunca recalculada no fechamento)
+  - [x] faixa cruzando a meia-noite calcula certo (já coberto desde o CRUD de tarifas)
+  - [x] promoção + desconto de plano aplicados na ordem correta (não acumulados sobre o bruto)
+  - [x] franquia abatida em kWh antes da conversão em dinheiro
+  - [x] franquia excedida cobra o excedente com desconto do plano
+  - [ ] fila: assinante trimestral entra depois de um avulso e é atendido antes — a
+        *ordenação* por prioridade está testada (`test_queue.py`); esse cenário específico
+        (planos reais avulso vs. trimestral) depende do `plans.py` em espera
+  - [x] sessão em `error` não gera cobrança (timeout sem potência e tarifa não configurada,
+        os dois caminhos testados)
+- [ ] Extrato de um mês fechado permanece idêntico depois de alterar a tabela de tarifas —
+      coberto pelo *design* (snapshot gravado no fechamento, nunca relido da tabela atual),
+      não por um teste dedicado que altere a tarifa depois e reconfira o extrato antigo
+- [x] Sessão completa ponta a ponta: abre por RFID, acumula, fecha, valor confere com o
+      cálculo manual — testado tanto com dados sintéticos (`test_sessions.py`) quanto ao vivo
+      contra o servidor real, com o polling do M2 alimentando as leituras
+
+## O front ainda não consome nada disso
+
+Nenhuma tela de `frontend-proprietario/` ou `frontend-cliente/` foi tocada nesta rodada —
+decisão explícita de manter o front como está até haver uma confirmação separada para
+conectá-lo. Os banners "em construção" em `SessaoPage.jsx` (cliente) e `FilaPage.jsx`/
+`RelatoriosPage.jsx` (proprietário) continuam lá, mesmo com os endpoints já existindo e
+testados (`POST /sessions/start`, `GET /sessions/current`, `GET /sessions/{id}/receipt`,
+`GET /sessions`, `POST /queue/join`, `GET /queue/mine`, `GET /queue`). Ver M4/M5 — as notas
+que diziam "depende de M3, que não existe" foram corrigidas para "M3 existe, front não
+conecta ainda", que é a razão real da lacuna agora.
 
 ## Armadilhas
 

@@ -1,3 +1,8 @@
+import asyncio
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,11 +14,38 @@ from app.api.establishments import router as establishments_router
 from app.api.health import router as health_router
 from app.api.onboarding import router as onboarding_router
 from app.api.plans import router as plans_router
+from app.api.queue import router as queue_router
+from app.api.sessions import router as sessions_router
 from app.api.tariffs import router as tariffs_router
 from app.api.users import router as users_router
 from app.core.config import settings
 
-app = FastAPI(title="ChargeGrid-Manager API")
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """So sobe o polling (M2) junto do processo web se POLLING_ENABLED=true - default
+    false, pra dev/producao poderem preferir rodar `python -m app.integracoes.polling`
+    como worker separado (skill integracao-sems-simulador, secao 3). TestClient(app) sem
+    `with` nao dispara lifespan nesta versao do Starlette, entao os testes nunca sobem isto
+    de qualquer forma - mas manter o default false evita surpresa se isso mudar."""
+    task: asyncio.Task | None = None
+    if settings.polling_enabled:
+        from app.integracoes.polling import PollingService
+        from app.integracoes.sems_client import get_sems_client
+
+        service = PollingService(get_sems_client())
+        task = asyncio.create_task(service.run_forever())
+        logger.info("Polling (M2) iniciado junto do FastAPI")
+
+    yield
+
+    if task is not None:
+        task.cancel()
+
+
+app = FastAPI(title="ChargeGrid-Manager API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,3 +65,5 @@ app.include_router(chatbot_router)
 app.include_router(tariffs_router)
 app.include_router(dashboard_router)
 app.include_router(onboarding_router)
+app.include_router(sessions_router)
+app.include_router(queue_router)

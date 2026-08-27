@@ -15,8 +15,10 @@ A tela que o jurado vai olhar primeiro. Desktop-first, densa, operacional.
 - [x] Mapa visual das vagas: livre (verde) · carregando (azul + progresso) · problema (vermelho)
       · reservado (âmbar) · offline (cinza) — sempre com ícone e rótulo, nunca só cor
 - [x] Potência total consumida agora vs. limite configurado, com o limiar marcado na barra
-- [ ] Receita do dia, semana e mês — `DashboardResponse.revenue_today` sempre `None`
-      (`services/dashboard.py` documenta: depende do motor de tarifação de M3, que não existe)
+- [ ] Receita do dia, semana e mês — `DashboardResponse.revenue_today` continua sempre `None`.
+      O motor de tarifação (M3) já existe (`services/sessions.py`/`pricing.py`,
+      `GET /sessions?establishment_id=`), mas `services/dashboard.py` ainda não foi atualizado
+      pra consumi-lo — a lacuna agora é "ninguém plugou", não "não existe"
 - [ ] Número de sessões ativas — mesma razão acima, sempre `None`
 - [x] **Alerta ao atingir 90 % da carga configurada** — visível e persistente
 - [x] Indicador "atualizado há X" perto de todo dado ao vivo
@@ -25,18 +27,22 @@ A tela que o jurado vai olhar primeiro. Desktop-first, densa, operacional.
 ### Gestão de tarifas
 - [x] Editor visual das faixas horárias com validação de sobreposição/cobertura
 - [ ] Criação de regras especiais (desconto de plano, minutos grátis)
-- [ ] Pré-visualização: "uma sessão de 20 kWh às 19h custaria R$ X" — não há `pricing.py` (M3)
-      para alimentar o cálculo
+- [ ] Pré-visualização: "uma sessão de 20 kWh às 19h custaria R$ X" — `services/pricing.py`
+      (M3) já existe e é uma função pura, fácil de expor num endpoint de simulação; só não
+      há tela nem rota específica pra isso ainda
 
 ### Gestão de usuários e planos
 - [x] Lista de clientes com plano ativo (`UsuariosPlanosPage.jsx` consome a API real)
-- [ ] Histórico e consumo do mês — depende de `charging_sessions` reais (M3)
+- [ ] Histórico e consumo do mês — `charging_sessions` reais já existem e são consultáveis
+      via `GET /sessions?establishment_id=`; falta só a tela consumir
 - [ ] Bloquear/desbloquear inadimplente — não encontrado na tela nem na API
 - [ ] Liberar novo cartão RFID pelo painel — tela só exibe o RFID já cadastrado, sem ação de emitir
 
 ### Relatórios financeiros
 - [ ] Extrato mensal: receita bruta, nº de sessões, kWh total, ticket médio, horários de pico —
-      `RelatoriosPage.jsx` é placeholder, sem nenhuma chamada à API
+      `RelatoriosPage.jsx` é placeholder, sem nenhuma chamada à API; o dado-fonte
+      (`charging_sessions` com snapshot de tarifa) já existe via `GET /sessions`, falta agregar
+      e conectar a tela
 - [ ] Comparativo entre meses
 - [ ] Exportação em PDF (cortável se o tempo apertar — manter a tela)
 

@@ -4,7 +4,7 @@ intervalos - "e onde o bug aparece", segundo a propria skill.
 """
 
 import uuid
-from datetime import time
+from datetime import datetime, time
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -59,3 +59,26 @@ def validate_no_overlap(
                         status_code=status.HTTP_409_CONFLICT,
                         detail=f"Faixa se sobrepoe com '{existing_rule.name}' no mesmo dia.",
                     )
+
+
+def resolve_active_tariff_rule(
+    db: Session, establishment_id: uuid.UUID, local_dt: datetime
+) -> TariffRule | None:
+    """Acha a regra de tarifa vigente num instante em horario local do estabelecimento.
+
+    A tarifa e congelada no inicio da sessao (skill tarifacao-e-sessoes secao 1): chamar
+    uma unica vez com o `started_at` convertido pra local, nunca recalcular no fechamento -
+    senao o extrato de uma sessao que atravessou a virada de faixa muda de valor.
+    """
+    weekday = local_dt.weekday()  # 0=segunda, igual a convencao de `days_of_week`
+    moment = local_dt.time()
+
+    rules = db.query(TariffRule).filter(TariffRule.establishment_id == establishment_id).all()
+    for rule in rules:
+        intervals = _expand_to_day_intervals(
+            rule.days_of_week, rule.start_time_local, rule.end_time_local
+        )
+        for day, start, end in intervals:
+            if day == weekday and start <= moment < end:
+                return rule
+    return None
