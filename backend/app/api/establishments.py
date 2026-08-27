@@ -7,7 +7,7 @@ from app.core.deps import get_current_user, require_owner
 from app.db.session import get_db
 from app.models.establishment import Establishment
 from app.models.user import User
-from app.schemas.establishment import EstablishmentCreate, EstablishmentRead
+from app.schemas.establishment import EstablishmentCreate, EstablishmentRead, EstablishmentUpdate
 
 router = APIRouter(prefix="/establishments", tags=["establishments"])
 
@@ -69,3 +69,21 @@ def get_establishment(
     current_user: User = Depends(require_owner),
 ) -> Establishment:
     return get_owned_establishment(establishment_id, db, current_user)
+
+
+@router.patch("/{establishment_id}", response_model=EstablishmentRead)
+def update_establishment(
+    establishment_id: uuid.UUID,
+    payload: EstablishmentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_owner),
+) -> Establishment:
+    """Hoje so os limites da sugestao de precificacao (M8) sao editaveis por aqui - os
+    demais campos (potencia, fase) dependem de re-dimensionamento, fora de escopo."""
+    establishment = get_owned_establishment(establishment_id, db, current_user)
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(establishment, field, value)
+    db.commit()
+    db.refresh(establishment)
+    return establishment

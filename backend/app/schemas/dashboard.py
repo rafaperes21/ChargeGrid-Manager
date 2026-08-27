@@ -34,6 +34,7 @@ class DashboardResponse(BaseModel):
     power_pct: Decimal | None
     anomalies: list[DashboardAnomaly]
     ia_unavailable: bool
-    revenue_today: Decimal | None
-    active_sessions_count: int | None
-    unavailable_reason: str
+    revenue_today: Decimal
+    revenue_week: Decimal
+    revenue_month: Decimal
+    active_sessions_count: int

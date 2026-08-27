@@ -28,12 +28,17 @@ no dashboard custa mais caro que "ainda coletando dados".
 - [x] Backtest com **corte temporal** (nunca split aleatório), MAE e MAPE (`run_backtest`)
 
 ### Precificação dinâmica sugerida
-- [ ] Regra sobre a previsão: acima do p80 histórico → sugere aumento; abaixo do p20 → redução —
-      não implementado (não existe `services/pricing_suggestion.py` nem equivalente em `/ia`)
-- [ ] Limites `max_increase_pct` / `max_decrease_pct` configurados pelo proprietário
-- [ ] **Padrão é sugerir, não aplicar.** Aplicação automática só dentro dos limites configurados
-- [ ] Log de auditoria de toda alteração automática, com o motivo
-- [ ] Nunca altera tarifa de sessão já iniciada
+- [x] Regra sobre a previsão: acima do p80 histórico → sugere aumento; abaixo do p20 → redução
+      (`ia/app/services/pricing_suggestion.py`, endpoint
+      `GET /pricing-suggestions/establishments/{id}`)
+- [x] Limites `max_increase_pct` / `max_decrease_pct` configurados pelo proprietário
+      (`Establishment.max_increase_pct`/`max_decrease_pct`, `PATCH /establishments/{id}`)
+- [x] **Padrão é sugerir, não aplicar.** Só existe o endpoint de sugestão — nada escreve em
+      `tariff_rules`; aplicação automática continua fora de escopo (nem tela nem endpoint)
+- [ ] Log de auditoria de toda alteração automática, com o motivo — N/A enquanto não existir
+      aplicação automática
+- [x] Nunca altera tarifa de sessão já iniciada — trivialmente verdade hoje: o serviço só lê e
+      devolve sugestões para horas futuras do horizonte de previsão, nunca escreve
 
 ### Detecção de anomalias
 - [x] Camada de regras determinísticas, sempre ativa: potência 0 por > 30 min com veículo
