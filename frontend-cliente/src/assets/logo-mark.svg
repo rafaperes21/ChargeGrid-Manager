@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <defs>
+    <linearGradient id="cgm-logo-mark-grad" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF7A1A" />
+      <stop offset="55%" stop-color="#E60012" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+  </defs>
+  <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" fill="url(#cgm-logo-mark-grad)" />
+</svg>

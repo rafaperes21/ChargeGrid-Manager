@@ -1,7 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import emptyHistoricoIllustration from '../assets/empty-historico.svg'
+import { Skeleton } from '../components/ui/Skeleton'
 import { apiClient } from '../lib/apiClient'
 import { formatCurrency, formatDateTime, formatEnergyKwh } from '../lib/format'
+import { gsap, prefersReducedMotion, TRANSITION, useGSAP } from '../lib/motion'
 
 const BREAKDOWN_ROWS = [
   ['gross_amount', 'Bruto'],
@@ -72,6 +75,22 @@ function SessionRow({ session }) {
   )
 }
 
+function EmptyHistorico() {
+  const containerRef = useRef(null)
+
+  useGSAP(() => {
+    if (!containerRef.current || prefersReducedMotion()) return
+    gsap.fromTo(containerRef.current, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, ...TRANSITION })
+  }, [])
+
+  return (
+    <div ref={containerRef} className="flex flex-col items-center gap-3 rounded-2xl border border-hairline p-8 text-center">
+      <img src={emptyHistoricoIllustration} alt="" width={120} height={120} />
+      <p className="text-sm text-muted-2">Nenhuma sessão concluída ainda.</p>
+    </div>
+  )
+}
+
 export function HistoricoPage() {
   const { data: sessions, isLoading } = useQuery({
     queryKey: ['sessions-mine'],
@@ -82,18 +101,15 @@ export function HistoricoPage() {
     <div className="flex flex-1 flex-col gap-3 p-5">
       <p className="text-xs font-bold uppercase tracking-wide text-muted">Histórico</p>
 
-      {isLoading && <p className="text-sm text-muted">Carregando…</p>}
-
-      {sessions?.length === 0 && (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-hairline p-8 text-center">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9A96A6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 3v5h5" />
-            <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-            <path d="M12 7v5l4 2" />
-          </svg>
-          <p className="text-sm text-muted-2">Nenhuma sessão concluída ainda.</p>
+      {isLoading && (
+        <div className="flex flex-col gap-2.5">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
         </div>
       )}
+
+      {sessions?.length === 0 && <EmptyHistorico />}
 
       <div className="flex flex-col gap-2.5">
         {sessions?.map((session) => (

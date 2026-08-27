@@ -1,11 +1,59 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
+import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
+import { Skeleton } from '../components/ui/Skeleton'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { ApiError, apiClient } from '../lib/apiClient'
 import { formatDateTime, formatPowerKw, formatUpdatedAgo } from '../lib/format'
+import { createPinIcon, STATUS_PIN_COLOR } from '../lib/mapIcons'
+
+// O backend so guarda uma coordenada por estabelecimento (Establishment.latitude/longitude) -
+// nao existe coordenada individual por carregador (ver Charger model). Pra dar um pino por
+// carregador sem inventar GPS que o sistema nao tem, espalhamos os pinos num pequeno circulo
+// em torno do ponto real do estabelecimento (~50m de raio) - so um recurso visual de
+// agrupamento, nunca apresentado como localizacao precisa. Documentado em
+// tasks/milestones/M10-motion-mapa-3d.md.
+function chargerPinOffset(index, total) {
+  if (total <= 1) return [0, 0]
+  const angle = (2 * Math.PI * index) / total
+  const radiusDeg = 0.00045
+  return [radiusDeg * Math.sin(angle), radiusDeg * Math.cos(angle)]
+}
+
+function ChargersMiniMap({ establishment, chargers }) {
+  if (establishment?.latitude == null || establishment?.longitude == null) return null
+
+  const center = [Number(establishment.latitude), Number(establishment.longitude)]
+
+  return (
+    <div className="h-[200px] w-full overflow-hidden rounded-2xl border border-hairline">
+      <MapContainer center={center} zoom={17} scrollWheelZoom={false} className="h-full w-full">
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        {chargers.map((charger, index) => {
+          const [dLat, dLon] = chargerPinOffset(index, chargers.length)
+          return (
+            <Marker
+              key={charger.id}
+              position={[center[0] + dLat, center[1] + dLon]}
+              icon={createPinIcon(STATUS_PIN_COLOR[charger.status] ?? STATUS_PIN_COLOR.offline)}
+            >
+              <Popup>
+                <p className="font-semibold">{charger.spot_label}</p>
+                <p>{charger.status}</p>
+              </Popup>
+            </Marker>
+          )
+        })}
+      </MapContainer>
+    </div>
+  )
+}
 
 function secondsSince(iso) {
   if (!iso) return null
@@ -189,7 +237,16 @@ export function MapaDetalhePage() {
       </div>
 
       <div className="flex flex-col gap-3 p-5">
-        {isLoading && <p className="text-sm text-muted">Carregando…</p>}
+        {isLoading && (
+          <>
+            <Skeleton className="h-[200px] w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </>
+        )}
+        {!isLoading && chargers?.length > 0 && (
+          <ChargersMiniMap establishment={establishment} chargers={chargers} />
+        )}
         {joinError && <p className="text-xs text-status-problema">{joinError}</p>}
 
         {reservationsHere.length > 0 && (
