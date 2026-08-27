@@ -1,8 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
+import { Link, useNavigate } from 'react-router-dom'
+import { Skeleton } from '../components/ui/Skeleton'
 import { apiClient } from '../lib/apiClient'
 import { formatDistanceKm, haversineDistanceKm } from '../lib/geo'
+import { BRAND_PIN_COLOR, createPinIcon } from '../lib/mapIcons'
+
+// Centro de fallback quando nao ha geolocalizacao nem estabelecimento com coordenada -
+// Av. Paulista, mesma regiao do seed de demo (M10, Prioridade 2).
+const FALLBACK_CENTER = [-23.5613, -46.6565]
 
 function useGeolocation() {
   const [state, setState] = useState({ status: 'loading', coords: null })
@@ -39,6 +46,18 @@ function EstablishmentCard({ establishment, distanceKm }) {
   const free = chargers?.filter((c) => c.status === 'livre').length ?? 0
   const anyOnline = chargers?.some((c) => c.status !== 'offline') ?? true
 
+  if (!chargers) {
+    return (
+      <div className="flex items-center justify-between rounded-2xl border border-hairline p-3.5">
+        <div className="flex flex-col gap-1.5">
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+        <Skeleton className="h-6 w-20 rounded-full" />
+      </div>
+    )
+  }
+
   let badgeText = '…'
   let badgeClass = 'bg-[#F4F2FB] text-muted-2'
   if (chargers) {
@@ -70,6 +89,72 @@ function EstablishmentCard({ establishment, distanceKm }) {
         {badgeText}
       </span>
     </Link>
+  )
+}
+
+// Ajusta o zoom/centro do mapa pra enquadrar todos os pinos com coordenada, sem forcar o
+// usuario a arrastar manualmente - roda de novo sempre que a lista de pontos muda.
+function FitBounds({ points, fallbackCenter }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (points.length === 0) {
+      map.setView(fallbackCenter, 13)
+      return
+    }
+    if (points.length === 1) {
+      map.setView(points[0], 15)
+      return
+    }
+    map.fitBounds(points, { padding: [32, 32], maxZoom: 15 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(points)])
+
+  return null
+}
+
+function MapView({ sorted, userCoords }) {
+  const navigate = useNavigate()
+
+  const establishmentPoints = sorted
+    .filter(({ establishment }) => establishment.latitude != null && establishment.longitude != null)
+    .map(({ establishment }) => [Number(establishment.latitude), Number(establishment.longitude)])
+
+  const boundsPoints = userCoords
+    ? [...establishmentPoints, [userCoords.lat, userCoords.lon]]
+    : establishmentPoints
+
+  return (
+    <div className="h-[260px] w-full overflow-hidden">
+      <MapContainer center={FALLBACK_CENTER} zoom={13} scrollWheelZoom={false} className="h-full w-full">
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <FitBounds points={boundsPoints} fallbackCenter={FALLBACK_CENTER} />
+        {userCoords && (
+          <Marker position={[userCoords.lat, userCoords.lon]} icon={createPinIcon('#2563eb')}>
+            <Popup>Você está aqui</Popup>
+          </Marker>
+        )}
+        {sorted.map(({ establishment, distanceKm }) => {
+          if (establishment.latitude == null || establishment.longitude == null) return null
+          return (
+            <Marker
+              key={establishment.id}
+              position={[Number(establishment.latitude), Number(establishment.longitude)]}
+              icon={createPinIcon(BRAND_PIN_COLOR)}
+              eventHandlers={{ click: () => navigate(`/mapa/${establishment.id}`) }}
+            >
+              <Popup>
+                <p className="font-semibold">{establishment.name}</p>
+                {distanceKm != null && <p>{formatDistanceKm(distanceKm)}</p>}
+              </Popup>
+            </Marker>
+          )
+        })}
+      </MapContainer>
+    </div>
   )
 }
 
@@ -124,11 +209,21 @@ export function MapaPage() {
         </div>
       </div>
 
+      {!isLoading && <MapView sorted={sorted} userCoords={location.status === 'granted' ? location.coords : null} />}
+
       <div className="flex flex-col gap-3 p-5">
-        {isLoading && <p className="text-sm text-muted">Carregando…</p>}
-        {sorted.map(({ establishment, distanceKm }) => (
-          <EstablishmentCard key={establishment.id} establishment={establishment} distanceKm={distanceKm} />
-        ))}
+        {isLoading && (
+          <>
+            <Skeleton className="h-[260px] w-full" />
+            <Skeleton className="h-[70px] w-full" />
+            <Skeleton className="h-[70px] w-full" />
+            <Skeleton className="h-[70px] w-full" />
+          </>
+        )}
+        {!isLoading &&
+          sorted.map(({ establishment, distanceKm }) => (
+            <EstablishmentCard key={establishment.id} establishment={establishment} distanceKm={distanceKm} />
+          ))}
         {establishments?.length === 0 && (
           <p className="text-sm text-muted">Nenhum estacionamento cadastrado ainda.</p>
         )}

@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
+import emptyFilaIllustration from '../assets/empty-fila.svg'
+import { Skeleton } from '../components/ui/Skeleton'
 import { ApiError, apiClient } from '../lib/apiClient'
-import { animateNumber, MICRO, useGSAP } from '../lib/motion'
+import { animateNumber, gsap, MICRO, prefersReducedMotion, TRANSITION, useGSAP } from '../lib/motion'
 
 const formatPosition = (value) => String(Math.round(value))
 
@@ -20,21 +22,17 @@ function formatCountdown(totalSeconds) {
 }
 
 function NotInQueue() {
-  return (
-    <div className="flex flex-1 flex-col items-center gap-5 px-5 pb-5 pt-9">
-      <div className="relative h-[160px] w-[160px]">
-        <svg width="160" height="160" viewBox="0 0 180 180">
-          <circle cx="90" cy="90" r="76" fill="none" stroke="#EAE6F2" strokeWidth="14" />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-2">Posição</span>
-          <span className="text-4xl font-extrabold text-muted-3">—</span>
-        </div>
-      </div>
+  const containerRef = useRef(null)
 
-      <p className="text-center text-sm text-muted-2">
-        Você não está na fila de nenhum estacionamento no momento.
-      </p>
+  useGSAP(() => {
+    if (!containerRef.current || prefersReducedMotion()) return
+    gsap.fromTo(containerRef.current, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, ...TRANSITION })
+  }, [])
+
+  return (
+    <div ref={containerRef} className="flex flex-1 flex-col items-center gap-4 px-5 pb-5 pt-9 text-center">
+      <img src={emptyFilaIllustration} alt="" width={120} height={120} />
+      <p className="text-sm text-muted-2">Você não está na fila de nenhum estacionamento no momento.</p>
     </div>
   )
 }
@@ -69,7 +67,12 @@ export function FilaPage() {
   }, [entry?.position])
 
   if (isLoading) {
-    return <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted">Carregando…</div>
+    return (
+      <div className="flex flex-1 flex-col items-center gap-5 px-5 pb-5 pt-9">
+        <Skeleton className="h-[160px] w-[160px] rounded-full" />
+        <Skeleton className="h-4 w-56" />
+      </div>
+    )
   }
 
   if ((error instanceof ApiError && error.status === 404) || !entry) {

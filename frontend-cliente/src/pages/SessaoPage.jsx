@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '../components/ui/Button'
+import { Skeleton } from '../components/ui/Skeleton'
 import { ApiError, apiClient } from '../lib/apiClient'
 import { formatCurrency, formatEnergyKwh } from '../lib/format'
 import { animateNumber, gsap, MICRO, prefersReducedMotion, TRANSITION, useGSAP } from '../lib/motion'
+import emptySessaoIllustration from '../assets/empty-sessao.svg'
 
 const STATUS_LABEL = {
   pending: 'Aguardando carregador',
@@ -80,20 +82,18 @@ function formatElapsed(startedAtIso) {
 }
 
 function NoActiveSession() {
+  const containerRef = useRef(null)
+
+  useGSAP(() => {
+    if (!containerRef.current || prefersReducedMotion()) return
+    gsap.fromTo(containerRef.current, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, ...TRANSITION })
+  }, [])
+
   return (
-    <div className="flex flex-1 flex-col gap-5 p-5">
-      <div className="flex items-center justify-between">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted-3/10 px-3 py-1.5 text-xs font-medium text-muted-2">
-          Nenhuma sessão ativa
-        </span>
-      </div>
-
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-2">Valor acumulado</p>
-        <p className="mt-1 font-heading text-5xl font-bold leading-none text-muted-3">R$ —</p>
-      </div>
-
-      <div className="rounded-2xl border border-hairline bg-emerald-50 px-4 py-3">
+    <div ref={containerRef} className="flex flex-1 flex-col items-center gap-4 px-5 pb-5 pt-9 text-center">
+      <img src={emptySessaoIllustration} alt="" width={120} height={120} />
+      <p className="text-sm font-semibold text-ink">Nenhuma sessão ativa</p>
+      <div className="w-full rounded-2xl border border-hairline bg-emerald-50 px-4 py-3">
         <p className="text-xs text-emerald-800">
           Aproxime seu cartão RFID de um carregador livre para iniciar uma sessão.
         </p>
@@ -303,7 +303,19 @@ export function SessaoPage() {
   }
 
   if (isLoading) {
-    return <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted">Carregando…</div>
+    return (
+      <div className="flex flex-1 flex-col gap-5 p-5">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-7 w-40 rounded-full" />
+          <Skeleton className="h-4 w-16" />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-3 w-32" />
+          <Skeleton className="h-12 w-48" />
+        </div>
+        <Skeleton className="h-14 w-full" />
+      </div>
+    )
   }
 
   if (error instanceof ApiError && error.status === 404) {

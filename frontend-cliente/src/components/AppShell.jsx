@@ -1,9 +1,12 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { BottomNav } from './BottomNav'
+import { OnboardingCarousel } from './OnboardingCarousel'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { useAuth } from '../lib/auth'
 import { gsap, TRANSITION, useGSAP } from '../lib/motion'
+
+const ONBOARDING_KEY_PREFIX = 'cgm_onboarding_seen_'
 
 // Mobile-first: usado em pé, no estacionamento, com pouca paciência (skill ui-dois-portais).
 export function AppShell() {
@@ -11,12 +14,31 @@ export function AppShell() {
   const { pathname } = useLocation()
   const outletRef = useRef(null)
 
+  // Guardado por usuario (nao so uma flag global) - cada conta de demo ve o carrossel na
+  // propria primeira vez, mesmo compartilhando o navegador.
+  const [onboardingSeen, setOnboardingSeen] = useState(true)
+  useEffect(() => {
+    if (!user) return
+    setOnboardingSeen(localStorage.getItem(ONBOARDING_KEY_PREFIX + user.id) === '1')
+  }, [user])
+
   // Fade + slide leve ao trocar de pagina - reforca a troca de contexto sem chamar atencao
   // pra si mesma (skill motion-design: personalidade Corporate, sem overshoot).
   useGSAP(() => {
     if (!outletRef.current) return
     gsap.fromTo(outletRef.current, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, ...TRANSITION })
   }, [pathname])
+
+  if (user && !onboardingSeen) {
+    return (
+      <OnboardingCarousel
+        onFinish={() => {
+          localStorage.setItem(ONBOARDING_KEY_PREFIX + user.id, '1')
+          setOnboardingSeen(true)
+        }}
+      />
+    )
+  }
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col bg-surface font-body">

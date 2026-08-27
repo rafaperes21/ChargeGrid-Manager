@@ -92,6 +92,59 @@ dado final são verificáveis ao vivo. Ver memória `feedback_gsap_counter_gotch
       também é um limite conhecido e não resolvido automaticamente (comentado em
       `services/reservations.sync_reservations`).
 
+### Prioridade Imediata — Polimento do frontend cliente (concluída em 27/08/2026)
+
+Pedido feito fora da ordem original de prioridades ("antes de qualquer outra coisa") porque o
+frontend do cliente já estava funcionalmente completo (Prioridade 0/1) mas visualmente cru em
+pontos concretos: mapa sem tiles reais, "Carregando…" em texto puro, estados vazios só com
+texto, sem favicon/ícone de PWA.
+
+- [x] **Tarefa I.1 — Mapa visual real**: `leaflet` + `react-leaflet` instalados só no
+      `frontend-cliente`. `MapaPage.jsx` ganhou um `MapContainer` (tiles OpenStreetMap, sem
+      chave de API) acima da lista existente — a lista **não foi removida**, continua abaixo
+      com a mesma ordenação por Haversine da Prioridade 2. Pino por estabelecimento só aparece
+      pra quem tem `latitude`/`longitude` cadastrada (nunca inventa coordenada pra quem não
+      tem — testado ao vivo: de 4 estabelecimentos de demo, só "Estacionamento Central" tem
+      coordenada e é o único com pino). `MapaDetalhePage.jsx` ganhou um mini-mapa com um pino
+      por carregador, cor seguindo os tokens de `StatusBadge` (`status-livre` etc.) — testado
+      ao vivo: reservado renderizou `#d97706`, livre renderizou `#16a34a`, batendo com o status
+      real de cada vaga.
+      **Limitação documentada, não decidida sozinha:** `Charger` não tem coordenada própria no
+      banco — só `Establishment.latitude/longitude`. Pra ter um pino por carregador sem
+      inventar GPS que o sistema não tem, `MapaDetalhePage.jsx` (`chargerPinOffset`) espalha os
+      pinos num círculo de ~50m ao redor do ponto real do estabelecimento — é só um recurso
+      visual de agrupamento, nunca apresentado como localização precisa. Se o time achar isso
+      enganoso, a alternativa é voltar a um pino único por estabelecimento aqui também.
+- [x] **Tarefa I.2 — Skeleton loaders com GSAP**: `components/ui/Skeleton.jsx` novo — retângulo
+      com pulso de opacidade contínuo via GSAP (`repeat: -1, yoyo: true`), para sozinho em
+      `prefers-reduced-motion: reduce`. Substituiu todo "Carregando…" em texto puro em
+      `MapaPage.jsx` (lista e badge de vagas), `MapaDetalhePage.jsx`, `SessaoPage.jsx` e
+      `FilaPage.jsx`; `HistoricoPage.jsx` ganhou linhas de skeleton no lugar do texto.
+- [x] **Tarefa I.3 — Estados vazios com ilustração**: `empty-fila.svg`, `empty-historico.svg`,
+      `empty-sessao.svg` novos em `src/assets/`, usados em `FilaPage.jsx`, `HistoricoPage.jsx`
+      e `SessaoPage.jsx` (`NoActiveSession`) com fade+slide de entrada via `TRANSITION`
+      (`motion.js`), pulando pro estado final se `prefers-reduced-motion: reduce`.
+- [x] **Tarefa I.4 — Onboarding/boas-vindas**: `components/OnboardingCarousel.jsx` novo, 3
+      passos (`onboarding-1/2/3.svg`) com o texto exato pedido no briefing, transição de passo
+      reaproveitando `TRANSITION`. Gate em `AppShell.jsx`, guardado em `localStorage` por
+      `user.id` (`cgm_onboarding_seen_<id>`) — cada conta vê o carrossel só na própria primeira
+      vez. Testado ao vivo de ponta a ponta: 3 passos, "Começar" libera a tela real e marca
+      como visto, um segundo login da mesma conta não mostra mais o carrossel.
+- [x] **Tarefa I.5 — Favicon e ícones do app**: `favicon.svg` já existia; adicionados
+      `apple-touch-icon.png` (180×180), `icon-192.png`, `icon-512.png` e
+      `manifest.webmanifest`, referenciados em `index.html`. Testado ao vivo: os 5 arquivos
+      respondem 200.
+
+**Assets gerados nesta rodada, não fornecidos por um designer — sinalizando aqui como pedido no
+briefing.** Nenhum SVG/PNG listado como necessário existia no repositório antes desta tarefa.
+Todos os ilustrativos (`logo-mark.svg`, `charger-pin.svg`, `empty-*.svg`, `onboarding-*.svg`) são
+SVGs flat simples desenhados diretamente nesta sessão, na paleta de tokens do produto
+(`--color-accent-purple`, `--color-accent-orange` etc.) — servem como placeholder funcional para
+a demo, mas valeria substituir por peças de um designer antes de qualquer uso além do hackathon.
+Os PNGs de ícone (`apple-touch-icon`, `icon-192`, `icon-512`) foram rasterizados via ImageMagick
+a partir de um SVG quadrado com o mesmo raio-gradiente da marca (`/tmp/.../icon-source.svg`,
+não versionado — só os PNGs finais foram commitados).
+
 ### Prioridade 3 — Carregador 3D interativo (`img2threejs`)
 
 Deliberadamente descartada por decisão do usuário em 27/08/2026 — ver memória
