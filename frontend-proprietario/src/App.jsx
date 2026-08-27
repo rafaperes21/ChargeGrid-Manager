@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './lib/auth'
 import { ChatPage } from './pages/ChatPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { FilaProprietarioPage } from './pages/FilaProprietarioPage'
+import { FrotaPage } from './pages/FrotaPage'
 import { LoginPage } from './pages/LoginPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
@@ -21,6 +22,7 @@ const PAGE_COMPONENTS = {
   '/usuarios-planos': UsuariosPlanosPage,
   '/fila': FilaProprietarioPage,
   '/relatorios': RelatoriosPage,
+  '/frota': FrotaPage,
   '/onboarding': OnboardingPage,
   '/assistente': ChatPage,
 }

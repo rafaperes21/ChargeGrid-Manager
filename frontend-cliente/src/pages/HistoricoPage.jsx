@@ -44,7 +44,7 @@ function SessionRow({ session }) {
   const isFinished = session.status === 'finished'
 
   return (
-    <div className="rounded-2xl border border-hairline bg-white">
+    <div className="rounded-2xl border border-hairline bg-surface">
       <button
         type="button"
         onClick={() => isFinished && setExpanded((v) => !v)}

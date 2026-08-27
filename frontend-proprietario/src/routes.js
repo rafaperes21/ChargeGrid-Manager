@@ -7,6 +7,7 @@ export const routes = [
   { path: '/usuarios-planos', title: 'Usuários e planos' },
   { path: '/fila', title: 'Fila' },
   { path: '/relatorios', title: 'Relatórios' },
+  { path: '/frota', title: 'Visão de frota' },
   { path: '/onboarding', title: 'Onboarding' },
   { path: '/assistente', title: 'Assistente' },
 ]

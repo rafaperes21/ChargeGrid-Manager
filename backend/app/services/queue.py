@@ -13,9 +13,9 @@ agora - nunca sai da fila por perder a vez) e tenta oferecer a vaga pro proximo.
 `sync_session`): sem worker em background, reserva vencida so e resolvida quando alguem
 consulta a fila.
 
-Fora de escopo por ora: reserva antecipada (cliente reservar um horario futuro sem estar
-na fila ao vivo, retirando aquele carregador da oferta) - item separado do milestone M3,
-ainda nao modelado.
+Reserva antecipada (cliente reservar um horario futuro sem estar na fila ao vivo) e um
+fluxo separado, modelado em `services/reservations.py` (M10, Tarefa 2.3) - nao entra na
+oferta da fila (`offer_charger` so considera carregadores `livre`).
 """
 
 import uuid
@@ -30,6 +30,7 @@ from app.models.queue import QueueEntry
 from app.models.session import ChargingSession
 from app.models.tariff import Plan
 from app.models.user import Subscription, User
+from app.services.plan_catalog import get_tier
 
 RESERVATION_TIMEOUT = timedelta(minutes=15)
 
@@ -53,7 +54,7 @@ def _resolve_queue_priority(db: Session, user_id: uuid.UUID, establishment_id: u
     )
     if subscription is None:
         return 0  # avulso, sem assinatura ativa nesse estabelecimento
-    return subscription.plan.priority
+    return get_tier(subscription.plan.kind).priority
 
 
 def join_queue(db: Session, user: User, establishment_id: uuid.UUID) -> QueueEntry:

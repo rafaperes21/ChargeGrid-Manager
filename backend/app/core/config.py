@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     polling_enabled: bool = False
     polling_offline_after_failures: int = 3
 
+    # Sustentabilidade (skill tarifacao-e-sessoes §7) - em config, nao hardcoded, porque a
+    # matriz eletrica brasileira muda e o numero precisa ser defensavel. Usado na tela de
+    # impacto (Prioridade 5, Tarefa 5.3).
+    avg_vehicle_kwh_per_km: float = 0.16
+    co2_emission_factor_kg_per_km: float = 0.12
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property

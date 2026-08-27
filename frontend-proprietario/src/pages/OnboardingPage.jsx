@@ -90,7 +90,7 @@ export function OnboardingPage() {
       <div className="grid grid-cols-[420px_1fr] items-start gap-5 p-8">
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col gap-[18px] rounded-[18px] border border-hairline bg-white p-6 shadow-[0_2px_14px_rgba(14,10,26,0.05)]"
+          className="flex flex-col gap-[18px] rounded-[18px] border border-hairline bg-surface p-6 shadow-[0_2px_14px_rgba(14,10,26,0.05)]"
         >
           <h2 className="font-heading text-sm font-bold text-ink">Dados da instalação</h2>
 
@@ -166,7 +166,7 @@ export function OnboardingPage() {
 
           {result && (
             <div ref={resultRef} className="flex flex-col gap-4">
-              <div className="flex items-center justify-between rounded-[18px] border-[1.5px] border-brand bg-white p-6 shadow-[0_2px_14px_rgba(230,0,18,0.08)]">
+              <div className="flex items-center justify-between rounded-[18px] border-[1.5px] border-brand bg-surface p-6 shadow-[0_2px_14px_rgba(230,0,18,0.08)]">
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-wide text-brand">Modelo recomendado</p>
                   <p className="mt-2 font-heading text-[26px] font-extrabold text-ink">
@@ -182,7 +182,7 @@ export function OnboardingPage() {
                     </p>
                   )}
                 </div>
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-ink">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-ink-fixed">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="#E60012">
                     <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" />
                   </svg>
@@ -190,14 +190,14 @@ export function OnboardingPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-                <div className="rounded-[18px] border border-hairline bg-white p-[18px] shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+                <div className="rounded-[18px] border border-hairline bg-surface p-[18px] shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Investimento estimado</p>
                   <p className="mt-2 text-[22px] font-bold text-ink">
                     {result.budget.capex ? `R$ ${Number(result.budget.capex).toFixed(0)}` : 'Sob consulta'}
                   </p>
                   <p className="mt-1.5 text-[11px] text-muted">TODO(datasheet) — preço a confirmar</p>
                 </div>
-                <div className="rounded-[18px] border border-hairline bg-white p-[18px] shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+                <div className="rounded-[18px] border border-hairline bg-surface p-[18px] shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Payback estimado</p>
                   <p className="mt-2 text-[22px] font-bold text-ink">
                     {result.budget.payback_months ? `${Number(result.budget.payback_months).toFixed(0)} meses` : 'Sob consulta'}
@@ -206,14 +206,14 @@ export function OnboardingPage() {
                     {result.budget.note ?? 'com ocupação estimada'}
                   </p>
                 </div>
-                <div className="rounded-[18px] border border-hairline bg-white p-[18px] shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+                <div className="rounded-[18px] border border-hairline bg-surface p-[18px] shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Corrente máxima por fase</p>
                   <p className="mt-2 text-[22px] font-bold text-ink">{result.recommended_model_max_current_a} A</p>
                   <p className="mt-1.5 text-[11px] text-muted">TODO(datasheet) — confirmar BR</p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between rounded-[18px] border border-hairline bg-white p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+              <div className="flex items-center justify-between rounded-[18px] border border-hairline bg-surface p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
                 <div>
                   <p className="text-[13px] font-semibold text-ink">Orçamento completo em PDF</p>
                   <p className="mt-1 text-xs text-muted">

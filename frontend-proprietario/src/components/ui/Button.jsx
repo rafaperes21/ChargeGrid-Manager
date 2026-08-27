@@ -1,7 +1,7 @@
 const VARIANTS = {
   primary: 'bg-brand text-white hover:bg-brand-hover',
-  secondary: 'border border-brand text-brand bg-white hover:bg-brand/5',
-  ghost: 'border border-hairline text-ink-soft bg-white hover:bg-cream',
+  secondary: 'border border-brand text-brand bg-surface hover:bg-brand/5',
+  ghost: 'border border-hairline text-ink-soft bg-surface hover:bg-cream',
 }
 
 export function Button({ variant = 'primary', className = '', ...props }) {

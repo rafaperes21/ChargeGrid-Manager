@@ -3,6 +3,7 @@ import { useRef } from 'react'
 import { useAuth } from '../lib/auth'
 import { routes } from '../routes'
 import { gsap, MICRO, useGSAP } from '../lib/motion'
+import { ThemeToggle } from './ui/ThemeToggle'
 
 // Icones por rota - mesmos paths SVG do modelo de design (feather icons).
 const ICONS = {
@@ -43,6 +44,13 @@ const ICONS = {
       <line x1="18" y1="20" x2="18" y2="10" />
       <line x1="12" y1="20" x2="12" y2="4" />
       <line x1="6" y1="20" x2="6" y2="14" />
+    </>
+  ),
+  '/frota': (
+    <>
+      <path d="M3 21h18" />
+      <path d="M6 21V9l6-4 6 4v12" />
+      <path d="M10 21v-6h4v6" />
     </>
   ),
   '/onboarding': (
@@ -111,7 +119,7 @@ export function Sidebar() {
   const assistantRoute = routes.find((route) => route.path === '/assistente')
 
   return (
-    <aside className="relative flex w-[220px] shrink-0 flex-col bg-ink font-body text-white">
+    <aside className="relative flex w-[220px] shrink-0 flex-col bg-ink-fixed font-body text-white">
       <div
         className="cgm-flow pointer-events-none absolute inset-y-0 right-0 w-0.5 opacity-70"
         style={{
@@ -121,18 +129,21 @@ export function Sidebar() {
         }}
       />
 
-      <div className="flex items-center gap-2.5 border-b border-white/10 px-5 py-[22px]">
-        <svg width="30" height="30" viewBox="0 0 24 24" className="shrink-0">
-          <defs>
-            <linearGradient id="boltGrad" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#FF7A1A" />
-              <stop offset="55%" stopColor="#E60012" />
-              <stop offset="100%" stopColor="#7C3AED" />
-            </linearGradient>
-          </defs>
-          <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" fill="url(#boltGrad)" />
-        </svg>
-        <p className="font-heading text-[15px] font-bold tracking-tight">ChargeGrid</p>
+      <div className="flex items-center justify-between gap-2.5 border-b border-white/10 px-5 py-[22px]">
+        <div className="flex items-center gap-2.5">
+          <svg width="30" height="30" viewBox="0 0 24 24" className="shrink-0">
+            <defs>
+              <linearGradient id="boltGrad" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#FF7A1A" />
+                <stop offset="55%" stopColor="#E60012" />
+                <stop offset="100%" stopColor="#7C3AED" />
+              </linearGradient>
+            </defs>
+            <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" fill="url(#boltGrad)" />
+          </svg>
+          <p className="font-heading text-[15px] font-bold tracking-tight">ChargeGrid</p>
+        </div>
+        <ThemeToggle />
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 p-3">

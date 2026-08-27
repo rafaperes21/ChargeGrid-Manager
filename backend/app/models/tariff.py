@@ -3,7 +3,7 @@ from datetime import time
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String, Time
+from sqlalchemy import Boolean, ForeignKey, Numeric, String, Time, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -33,15 +33,18 @@ class TariffRule(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
 
 class Plan(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """Uma linha por nivel do catalogo fixo (`services/plan_catalog.PLAN_CATALOG`) por
+    estabelecimento - nome/preco/desconto/franquia/prioridade vêm do catalogo, nunca deste
+    modelo (M3, Tarefa 4.1: proprietario so escolhe `enabled`, nunca os valores)."""
+
     __tablename__ = "plans"
+    __table_args__ = (
+        UniqueConstraint("establishment_id", "kind", name="uq_plans_establishment_kind"),
+    )
 
     establishment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("establishments.id"))
-    name: Mapped[str] = mapped_column(String(100))
     kind: Mapped[PlanKind] = mapped_column(SAEnum(PlanKind, name="plan_kind"))
-    price: Mapped[Decimal | None] = mapped_column(Numeric(12, 4))
-    free_kwh_allowance: Mapped[Decimal | None] = mapped_column(Numeric(12, 3))
-    discount_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
-    priority: Mapped[int] = mapped_column(Integer, default=0)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
     establishment: Mapped["Establishment"] = relationship(back_populates="plans")
     subscriptions: Mapped[list["Subscription"]] = relationship(back_populates="plan")

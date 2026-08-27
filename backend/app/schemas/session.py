@@ -4,11 +4,15 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
-from app.models.enums import ChargingSessionStatus
+from app.models.enums import ChargingSessionStatus, PaymentMethod
 
 
 class SessionStartRequest(BaseModel):
     charger_id: uuid.UUID
+
+
+class SessionPaymentMethodUpdate(BaseModel):
+    payment_method: PaymentMethod
 
 
 class ChargingSessionRead(BaseModel):
@@ -24,6 +28,7 @@ class ChargingSessionRead(BaseModel):
     tariff_rate_applied: Decimal | None
     plan_discount_pct: Decimal | None
     free_minutes_applied: int | None
+    payment_method: PaymentMethod | None
 
     model_config = {"from_attributes": True}
 
@@ -49,3 +54,4 @@ class ReceiptRead(BaseModel):
     discount_value: str
     franquia_value: str
     final_amount: str
+    payment_method: str | None

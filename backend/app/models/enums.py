@@ -31,3 +31,20 @@ class ChargingSessionStatus(str, enum.Enum):
     active = "active"
     finished = "finished"
     error = "error"
+
+
+class ReservationStatus(str, enum.Enum):
+    pending = "pending"
+    fulfilled = "fulfilled"
+    cancelled = "cancelled"
+    no_show = "no_show"
+
+
+class PaymentMethod(str, enum.Enum):
+    """Declarativo (M3, Tarefa 4.2/4.3): registra a escolha, nunca processa pagamento de
+    verdade - sem gateway, sem PCI, sem simulacao de latencia. Fora de escopo do desafio."""
+
+    pix = "pix"
+    cartao_credito = "cartao_credito"
+    cartao_debito = "cartao_debito"
+    carteira_do_app = "carteira_do_app"

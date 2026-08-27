@@ -52,17 +52,45 @@ neste ambiente nunca dispara `requestAnimationFrame`, então animações GSAP ba
 não podem ser observadas em movimento aqui — só o estado inicial (`gsap.set()`, síncrono) e o
 dado final são verificáveis ao vivo. Ver memória `feedback_gsap_counter_gotcha`.
 
-### Prioridade 2 — Mapa do cliente: eletroposto mais perto + disponibilidade + reserva
+### Prioridade 2 — Mapa do cliente: eletroposto mais perto + disponibilidade + reserva (concluída em 27/08/2026)
 
-- [ ] Coordenadas e distância: `latitude`/`longitude` em `Establishment` (migration + seed),
-      `MapaPage.jsx` usa `navigator.geolocation` + Haversine pra ordenar por distância,
-      substituindo o placeholder "Distância e busca chegam numa próxima versão"
-- [ ] Tela de detalhe do estabelecimento (`/mapa/:establishmentId`): carregadores individuais
-      com status, somente leitura, reaproveitando a lógica do dashboard do proprietário
-- [ ] Reserva por horário específico: lacuna já documentada em M3 ("reserva antecipada... não
-      modelada") — tabela `reservations` nova, endpoints `POST/GET/DELETE /reservations`,
-      opcionalmente pré-selecionando horário de menor movimento via `ia/app/services/forecast.py`
-      (mesma tese "IA sugere, nunca decide sozinha" da precificação dinâmica)
+- [x] Coordenadas e distância: `latitude`/`longitude` (`Numeric(9,6)`, opcionais) em
+      `Establishment` (migration `7830e4378920`), seed com coordenada real (Av. Paulista, SP).
+      `MapaPage.jsx` usa `navigator.geolocation.getCurrentPosition` + Haversine
+      (`src/lib/geo.js`) pra ordenar por distância, com fallback textual claro se a permissão
+      for negada ou o dispositivo não suportar geolocalização — substitui o placeholder
+      "Distância e busca chegam numa próxima versão". Estabelecimentos sem coordenada cadastrada
+      vão para o fim da lista, nunca quebram a ordenação.
+- [x] Tela de detalhe do estabelecimento (`MapaDetalhePage.jsx`, rota `/mapa/:establishmentId`,
+      fora do array `routes.js` pra não virar aba extra no `BottomNav`): carregadores
+      individuais com `StatusBadge` e "atualizado há X", via `GET
+      /establishments/{id}/chargers-status` — endpoint novo, aberto a qualquer usuário
+      autenticado (mesmo raciocínio de `GET /chargers`: status não é dado financeiro),
+      reaproveitando a leitura de `services/dashboard.get_chargers_status` (extraída de
+      `get_dashboard` pra ser compartilhada sem duplicar a leitura de última leitura por
+      carregador).
+- [x] Reserva por horário específico: tabela `reservations` nova (`user_id`, `charger_id`,
+      `scheduled_start/end`, `status` — `pending/fulfilled/cancelled/no_show`),
+      `services/reservations.py` com a mesma tolerância de 15 min de no-show de
+      `services/queue.py` (`NO_SHOW_TOLERANCE`). `sync_reservations` (idempotente, mesmo
+      padrão de `sync_queue`/`sync_session`: sem worker, resolvido quando alguém consulta o
+      estabelecimento) ocupa a vaga (`ChargerStatus.reservado`) a partir do horário agendado e
+      marca `no_show` + libera se ninguém confirmar em 15 min. `services/sessions.start_session`
+      passa a checar `reservations.find_active_reservation` além da reserva de fila, pro RFID
+      abrir sessão numa vaga reservada antecipadamente pelo próprio cliente. Endpoints: `POST
+      /reservations`, `GET /reservations/mine`, `DELETE /reservations/{id}` (cliente),
+      `GET /establishments/{id}/reservations` (dono, agenda com nome do cliente e vaga).
+      UI em `MapaDetalhePage.jsx`: carregador livre oferece "Entrar na fila" ou "Reservar
+      horário" (form inline com `datetime-local` + duração), seção "Suas reservas aqui" com
+      cancelamento. Testado ao vivo no navegador: reserva criada, cancelada, fila oferecida
+      na hora por ter vaga livre.
+      **Escopo em aberto, documentado aqui em vez de decidido sozinho:** sugestão de horário de
+      menor movimento via `ia/app/services/forecast.py` (item "se houver tempo" do pedido
+      original) não foi implementada nesta rodada — ficaria acoplando a tela de reserva a mais
+      uma chamada à IA sem pedido explícito de prioridade. Retomar se o usuário pedir.
+      Conflito de agenda quando a vaga reservada é ocupada por um walk-in antes do horário
+      também é um limite conhecido e não resolvido automaticamente (comentado em
+      `services/reservations.sync_reservations`).
 
 ### Prioridade 3 — Carregador 3D interativo (`img2threejs`)
 
@@ -72,6 +100,33 @@ em reconstrução de modelos 3D a partir de skins de CS2, sem relação com o do
 Caminho alternativo se isso for retomado: modelo estilizado do HCA G2 com primitivas do
 Three.js (`@react-three/fiber`/`@react-three/drei`), sem depender de nenhuma skill de
 conversão de imagem.
+
+### Extra — Modo escuro nos dois portais (27/08/2026)
+
+Pedido direto do usuário nesta rodada, fora da lista de prioridades original — mantendo o
+template intacto (nenhuma classe Tailwind mudou nas telas, só o valor por trás dos tokens
+de cor).
+
+- `index.css` (idêntico nos dois frontends): tokens de superfície/texto que já eram
+  semânticos (`--color-cream`, `--color-hairline`, `--color-muted*`, `--color-ink`,
+  `--color-ink-soft`) ganharam uma redefinição sob `:root[data-theme='dark']`. Dois tokens
+  novos precisaram de rename mecânico porque eram usados com dois sentidos diferentes:
+  `bg-white` (~30 ocorrências) → `bg-surface` (cards/conteúdo, inverte no escuro) e `bg-ink`
+  (7 ocorrências: header do cliente, sidebar do proprietário, bolha de chat do usuário,
+  banners de mapa) → `bg-ink-fixed` (deliberadamente constante — já são barras escuras no
+  claro, não devem mudar). `text-ink`/`text-ink-soft` (74 ocorrências) não precisaram de
+  rename, só a variável por trás mudou.
+- `src/lib/theme.js` (duplicado nos dois portais, mesmo padrão de `motion.js`/`format.js`):
+  `bootstrapTheme()` chamado em `main.jsx` antes do primeiro render (evita flash), respeita
+  `prefers-color-scheme` quando não há escolha salva em `localStorage`. `useTheme()` expõe o
+  toggle, persistido em `localStorage` (`chargegrid_theme`).
+  `components/ui/ThemeToggle.jsx`: ícone sol/lua sobre a barra `bg-ink-fixed` (header no
+  cliente, topo da sidebar no proprietário).
+- Testado ao vivo nos dois portais: tema inicial respeita preferência do sistema, alternância
+  funciona e persiste, barras `bg-ink-fixed` permanecem escuras nos dois temas.
+  **Armadilha encontrada:** ler `getComputedStyle` logo após disparar o toggle pode capturar
+  um frame intermediário da transição CSS (`transition: background-color .2s`) — não é bug,
+  é só timing de teste; reconferir numa chamada separada resolve.
 
 ## Critérios de aceite
 

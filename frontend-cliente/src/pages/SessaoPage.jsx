@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '../components/ui/Button'
 import { ApiError, apiClient } from '../lib/apiClient'
@@ -8,6 +8,58 @@ import { animateNumber, gsap, MICRO, prefersReducedMotion, TRANSITION, useGSAP }
 const STATUS_LABEL = {
   pending: 'Aguardando carregador',
   active: 'Carregando',
+}
+
+const PAYMENT_METHOD_LABELS = {
+  pix: 'Pix',
+  cartao_credito: 'Crédito',
+  cartao_debito: 'Débito',
+  carteira_do_app: 'Carteira do app',
+}
+
+// Declarativo (M3, Tarefa 4.3): so registra a escolha do cliente, nunca processa pagamento
+// de verdade. Opcoes vem do que o estabelecimento aceita (Tarefa 4.2) - nunca inventadas.
+function PaymentMethodPicker({ establishmentId, currentMethod }) {
+  const queryClient = useQueryClient()
+
+  const { data: establishments } = useQuery({
+    queryKey: ['establishments'],
+    queryFn: () => apiClient.get('/establishments'),
+  })
+  const establishment = establishments?.find((item) => item.id === establishmentId)
+  const acceptedMethods = establishment?.accepted_payment_methods ?? []
+
+  const mutation = useMutation({
+    mutationFn: (payment_method) =>
+      apiClient.patch('/sessions/current/payment-method', { payment_method }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['current-session'] }),
+  })
+
+  if (acceptedMethods.length === 0) return null
+
+  return (
+    <div className="rounded-2xl border border-hairline px-4 py-3">
+      <p className="text-xs text-muted-2">Forma de pagamento</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {acceptedMethods.map((method) => {
+          const active = (currentMethod ?? mutation.variables) === method
+          return (
+            <button
+              type="button"
+              key={method}
+              disabled={mutation.isPending}
+              onClick={() => mutation.mutate(method)}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
+                active ? 'bg-brand text-white' : 'border border-hairline text-muted-2'
+              }`}
+            >
+              {PAYMENT_METHOD_LABELS[method]}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 // Ordem real do calculo (skill tarifacao-e-sessoes): bruto -> promocao -> desconto -> franquia
@@ -131,6 +183,14 @@ function SessionClosedConfirmation({ receipt, onDismiss }) {
           <span>Total cobrado</span>
           <span>{formatCurrency(receipt.final_amount)}</span>
         </div>
+        {receipt.payment_method && (
+          <div data-receipt-row className="flex items-center justify-between text-xs text-muted-2">
+            <span>Forma de pagamento</span>
+            <span className="font-semibold text-ink-soft">
+              {PAYMENT_METHOD_LABELS[receipt.payment_method] ?? receipt.payment_method}
+            </span>
+          </div>
+        )}
       </div>
 
       <Button onClick={onDismiss}>Concluir</Button>
@@ -288,6 +348,11 @@ export function SessaoPage() {
           {session.energy_kwh !== null ? formatEnergyKwh(session.energy_kwh) : '—'}
         </span>
       </div>
+
+      <PaymentMethodPicker
+        establishmentId={session.establishment_id}
+        currentMethod={session.payment_method}
+      />
 
       {session.status === 'pending' && (
         <div className="rounded-2xl border border-hairline bg-amber-50 px-4 py-3">

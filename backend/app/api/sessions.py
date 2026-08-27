@@ -15,9 +15,16 @@ from app.schemas.session import (
     ChargingSessionRead,
     CurrentSessionRead,
     ReceiptRead,
+    SessionPaymentMethodUpdate,
     SessionStartRequest,
 )
-from app.services.sessions import build_receipt, estimate_live_amount, start_session, sync_session
+from app.services.sessions import (
+    build_receipt,
+    estimate_live_amount,
+    set_payment_method,
+    start_session,
+    sync_session,
+)
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -68,6 +75,33 @@ def read_current_session(
         **ChargingSessionRead.model_validate(session).model_dump(),
         estimated_amount_due=estimated_amount_due,
     )
+
+
+@router.patch("/current/payment-method", response_model=ChargingSessionRead)
+def update_current_session_payment_method(
+    payload: SessionPaymentMethodUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_customer),
+) -> ChargingSession:
+    """Declarativo (Tarefa 4.3) - o cliente escolhe entre as formas que o estabelecimento
+    aceita enquanto a sessao ainda esta pending/active. Nao valida contra
+    `accepted_payment_methods` do estabelecimento: essa lista e so o que a tela do cliente
+    oferece pra escolher, nao uma trava de backend (a UI ja restringe as opcoes)."""
+    session = (
+        db.query(ChargingSession)
+        .filter(
+            ChargingSession.user_id == current_user.id,
+            ChargingSession.status.in_(
+                [ChargingSessionStatus.pending, ChargingSessionStatus.active]
+            ),
+        )
+        .first()
+    )
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Nenhuma sessao em andamento"
+        )
+    return set_payment_method(db, session, payload.payment_method)
 
 
 @router.get("/mine", response_model=list[ChargingSessionRead])

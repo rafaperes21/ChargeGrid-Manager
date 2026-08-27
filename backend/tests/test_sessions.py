@@ -6,7 +6,14 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.charger import Charger, ChargerReading
-from app.models.enums import ChargerModel, ChargerStatus, ChargingSessionStatus, PlanKind, UserRole
+from app.models.enums import (
+    ChargerModel,
+    ChargerStatus,
+    ChargingSessionStatus,
+    PaymentMethod,
+    PlanKind,
+    UserRole,
+)
 from app.models.establishment import Establishment
 from app.models.session import ChargingSession
 from app.models.tariff import Plan, TariffRule
@@ -16,6 +23,7 @@ from app.services.sessions import (
     LOCAL_TZ,
     build_receipt,
     estimate_live_amount,
+    set_payment_method,
     start_session,
     sync_session,
 )
@@ -311,15 +319,9 @@ def test_sync_session_aplica_desconto_do_plano_e_franquia(db_session, establishm
     tariff_rate = Decimal("2.0000")
     _make_full_day_tariff(db_session, establishment, started_at, tariff_rate)
 
-    plan = Plan(
-        establishment_id=establishment.id,
-        name="Mensal",
-        kind=PlanKind.mensal,
-        price=Decimal("49.90"),
-        free_kwh_allowance=Decimal("0.100"),
-        discount_pct=Decimal("15"),
-        priority=1,
-    )
+    # Mensal: valores fixos do catalogo da plataforma (services/plan_catalog.py) - 15% de
+    # desconto e 50 kWh de franquia, nao mais configuraveis pelo proprietario (M3, Tarefa 4.1).
+    plan = Plan(establishment_id=establishment.id, kind=PlanKind.mensal, enabled=True)
     db_session.add(plan)
     db_session.commit()
     db_session.refresh(plan)
@@ -365,7 +367,7 @@ def test_sync_session_aplica_desconto_do_plano_e_franquia(db_session, establishm
         session_duration_minutes=duration_minutes,
         free_minutes=0,
         plan_discount_pct=Decimal("15"),
-        franquia_kwh_available=Decimal("0.100"),
+        franquia_kwh_available=Decimal("50.000"),
     )
     assert result.amount_due == expected.final_amount
 
@@ -378,15 +380,9 @@ def test_build_receipt_decompoe_bruto_promocao_desconto_franquia_e_total(
     tariff_rate = Decimal("2.0000")
     _make_full_day_tariff(db_session, establishment, started_at, tariff_rate)
 
-    plan = Plan(
-        establishment_id=establishment.id,
-        name="Mensal",
-        kind=PlanKind.mensal,
-        price=Decimal("49.90"),
-        free_kwh_allowance=Decimal("0.100"),
-        discount_pct=Decimal("15"),
-        priority=1,
-    )
+    # Mensal: valores fixos do catalogo da plataforma (services/plan_catalog.py) - 15% de
+    # desconto e 50 kWh de franquia, nao mais configuraveis pelo proprietario (M3, Tarefa 4.1).
+    plan = Plan(establishment_id=establishment.id, kind=PlanKind.mensal, enabled=True)
     db_session.add(plan)
     db_session.commit()
     db_session.refresh(plan)
@@ -432,7 +428,7 @@ def test_build_receipt_decompoe_bruto_promocao_desconto_franquia_e_total(
     assert gross - promo - discount - franquia == final
     assert final == result.amount_due
     assert discount > 0  # plano com 15% de desconto foi aplicado
-    assert franquia > 0  # franquia de 0.100 kWh disponivel e consumida
+    assert franquia > 0  # franquia de 50 kWh do catalogo (mensal) disponivel e consumida
 
 
 def test_estimate_live_amount_projeta_sessao_active_sem_persistir(
@@ -493,3 +489,68 @@ def test_build_receipt_exige_sessao_finalizada(db_session, establishment, custom
 
     with pytest.raises(ValueError):
         build_receipt(session)
+
+
+def test_set_payment_method_em_sessao_pending(db_session, establishment, customer):
+    charger = _make_charger(db_session, establishment, status=ChargerStatus.reservado)
+    session = ChargingSession(
+        user_id=customer.id,
+        charger_id=charger.id,
+        establishment_id=establishment.id,
+        status=ChargingSessionStatus.pending,
+        started_at=datetime.now(_UTC),
+    )
+    db_session.add(session)
+    db_session.commit()
+
+    result = set_payment_method(db_session, session, PaymentMethod.pix)
+
+    assert result.payment_method == PaymentMethod.pix
+
+
+def test_set_payment_method_falha_em_sessao_ja_encerrada(db_session, establishment, customer):
+    charger = _make_charger(db_session, establishment, status=ChargerStatus.livre)
+    session = ChargingSession(
+        user_id=customer.id,
+        charger_id=charger.id,
+        establishment_id=establishment.id,
+        status=ChargingSessionStatus.finished,
+        started_at=datetime.now(_UTC) - timedelta(minutes=10),
+        ended_at=datetime.now(_UTC),
+        energy_kwh=Decimal("1.000"),
+        amount_due=Decimal("2.0000"),
+    )
+    db_session.add(session)
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        set_payment_method(db_session, session, PaymentMethod.pix)
+    assert exc.value.status_code == 409
+
+
+def test_build_receipt_inclui_payment_method_quando_escolhido(db_session, establishment, customer):
+    charger = _make_charger(db_session, establishment, status=ChargerStatus.reservado)
+    started_at = datetime.now(_UTC) - timedelta(minutes=10)
+    tariff_rate = Decimal("2.0000")
+    _make_full_day_tariff(db_session, establishment, started_at, tariff_rate)
+
+    session = ChargingSession(
+        user_id=customer.id,
+        charger_id=charger.id,
+        establishment_id=establishment.id,
+        status=ChargingSessionStatus.pending,
+        started_at=started_at,
+    )
+    db_session.add(session)
+    db_session.commit()
+    set_payment_method(db_session, session, PaymentMethod.carteira_do_app)
+
+    _add_reading(db_session, charger, started_at + timedelta(minutes=1), Decimal("3.000"))
+    _add_reading(db_session, charger, started_at + timedelta(minutes=2), Decimal("0.000"))
+    _add_reading(db_session, charger, started_at + timedelta(minutes=3), Decimal("0.000"))
+
+    result = sync_session(db_session, session)
+    assert result.status == ChargingSessionStatus.finished
+
+    receipt = build_receipt(result)
+    assert receipt["payment_method"] == "carteira_do_app"

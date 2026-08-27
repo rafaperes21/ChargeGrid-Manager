@@ -30,12 +30,13 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.charger import Charger, ChargerReading
-from app.models.enums import ChargerStatus, ChargingSessionStatus
+from app.models.enums import ChargerStatus, ChargingSessionStatus, PaymentMethod
 from app.models.session import ChargingSession
 from app.models.tariff import Plan
 from app.models.user import Subscription, User
-from app.services import queue
+from app.services import queue, reservations
 from app.services.energy_integration import trapezoidal_energy_kwh
+from app.services.plan_catalog import get_tier
 from app.services.pricing import calculate_session_amount
 from app.services.tariffs import resolve_active_tariff_rule
 
@@ -84,13 +85,18 @@ def start_session(db: Session, user: User, charger_id: uuid.UUID) -> ChargingSes
             status_code=status.HTTP_409_CONFLICT, detail="Usuario ja tem uma sessao em andamento"
         )
 
-    reservation = None
+    queue_reservation = None
+    advance_reservation = None
     if charger.status != ChargerStatus.livre:
         # nao livre pode ainda assim ser deste cliente: a fila (services/queue.py) reservou
-        # esse carregador especificamente pra ele por 15 min depois que vagou. So consome a
-        # reserva depois de garantir que a sessao vai mesmo ser criada (nenhum erro abaixo).
-        reservation = queue.find_active_reservation(db, user.id, charger.id)
-        if reservation is None:
+        # esse carregador especificamente pra ele por 15 min depois que vagou, OU e uma
+        # reserva antecipada dele mesmo dentro da janela de tolerancia (services/reservations.py,
+        # Tarefa 2.3 do M10). So consome a reserva depois de garantir que a sessao vai mesmo
+        # ser criada (nenhum erro abaixo).
+        queue_reservation = queue.find_active_reservation(db, user.id, charger.id)
+        if queue_reservation is None:
+            advance_reservation = reservations.find_active_reservation(db, user.id, charger.id)
+        if queue_reservation is None and advance_reservation is None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT, detail="Carregador nao esta livre"
             )
@@ -108,8 +114,10 @@ def start_session(db: Session, user: User, charger_id: uuid.UUID) -> ChargingSes
     # que a fila usa pra segurar vaga liberada - por isso o caminho acima confere se a
     # reserva "reservado" e mesmo deste cliente antes de aceitar.
     charger.status = ChargerStatus.reservado
-    if reservation is not None:
-        queue.consume_reservation(db, reservation)
+    if queue_reservation is not None:
+        queue.consume_reservation(db, queue_reservation)
+    if advance_reservation is not None:
+        reservations.consume_reservation(db, advance_reservation)
     db.commit()
     db.refresh(session)
     return session
@@ -146,7 +154,8 @@ def _ended_by_zero_power(readings: list[ChargerReading]) -> bool:
 def _franquia_kwh_available(
     db: Session, user_id: uuid.UUID, plan: Plan, cycle_start: date, cycle_end: date | None
 ) -> Decimal:
-    if not plan.free_kwh_allowance:
+    free_kwh_allowance = get_tier(plan.kind).free_kwh_allowance
+    if not free_kwh_allowance:
         return Decimal("0.000")
 
     finished_sessions = (
@@ -167,7 +176,7 @@ def _franquia_kwh_available(
             continue
         used_kwh += prior.energy_kwh or Decimal("0")
 
-    return max(plan.free_kwh_allowance - used_kwh, Decimal("0.000"))
+    return max(free_kwh_allowance - used_kwh, Decimal("0.000"))
 
 
 @dataclass(frozen=True)
@@ -200,7 +209,7 @@ def _resolve_plan_context(
     )
     # TODO(M3): minutos gratuitos condicionais (ex. "1a meia hora gratis no fim de semana")
     # ainda nao tem modelo de regra - item em aberto no CRUD de tarifas. Ate existir, 0.
-    return _PlanContext(plan.discount_pct or Decimal("0"), franquia, 0)
+    return _PlanContext(get_tier(plan.kind).discount_pct, franquia, 0)
 
 
 def _release_charger(db: Session, charger_id: uuid.UUID) -> None:
@@ -313,6 +322,23 @@ def sync_session(db: Session, session: ChargingSession) -> ChargingSession:
     return session
 
 
+def set_payment_method(
+    db: Session, session: ChargingSession, payment_method: PaymentMethod
+) -> ChargingSession:
+    """Declarativo (M3, Tarefa 4.3): so registra a escolha do cliente, nunca processa
+    pagamento de verdade - mesmo espirito do snapshot de tarifa. Pode ser trocada enquanto
+    a sessao ainda nao fechou; depois de `finished`/`error` a escolha fica congelada."""
+    if session.status not in (ChargingSessionStatus.pending, ChargingSessionStatus.active):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Sessao ja encerrada - forma de pagamento nao pode mais ser alterada",
+        )
+    session.payment_method = payment_method
+    db.commit()
+    db.refresh(session)
+    return session
+
+
 def build_receipt(session: ChargingSession) -> dict:
     """Recibo digital com a decomposicao bruto -> promocao -> desconto -> franquia -> total
     (skill `tarifacao-e-sessoes`), reconstruida a partir do snapshot ja persistido - nunca
@@ -362,4 +388,5 @@ def build_receipt(session: ChargingSession) -> dict:
         "discount_value": str(discount_value.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)),
         "franquia_value": str(franquia_value),
         "final_amount": str(session.amount_due),
+        "payment_method": session.payment_method.value if session.payment_method else None,
     }

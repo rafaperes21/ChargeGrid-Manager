@@ -7,6 +7,70 @@ import { gsap, TRANSITION, useGSAP } from '../lib/motion'
 
 const DAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 
+const PAYMENT_METHOD_LABELS = {
+  pix: 'Pix',
+  cartao_credito: 'Cartão de crédito',
+  cartao_debito: 'Cartão de débito',
+  carteira_do_app: 'Carteira do app',
+}
+
+// Declarativo (M3, Tarefa 4.2): so define o que aparece pro cliente escolher ao fechar a
+// sessao (Tarefa 4.3) - nunca processa pagamento de verdade.
+function PaymentMethodsSettings({ establishmentId }) {
+  const queryClient = useQueryClient()
+
+  const { data: establishment } = useQuery({
+    queryKey: ['establishment', establishmentId],
+    queryFn: () => apiClient.get(`/establishments/${establishmentId}`),
+    enabled: Boolean(establishmentId),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: (accepted_payment_methods) =>
+      apiClient.patch(`/establishments/${establishmentId}`, { accepted_payment_methods }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['establishment', establishmentId] }),
+  })
+
+  if (!establishment) return null
+
+  const accepted = establishment.accepted_payment_methods ?? []
+
+  function toggle(method) {
+    const next = accepted.includes(method)
+      ? accepted.filter((m) => m !== method)
+      : [...accepted, method]
+    updateMutation.mutate(next)
+  }
+
+  return (
+    <div className="rounded-[18px] border border-hairline bg-surface p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+      <h2 className="font-heading text-sm font-bold text-ink">Formas de pagamento aceitas</h2>
+      <p className="mt-1 text-xs text-muted-2">
+        O cliente escolhe entre essas opções ao fechar a sessão — apenas registra a escolha,
+        não processa pagamento de verdade.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {Object.entries(PAYMENT_METHOD_LABELS).map(([method, label]) => {
+          const active = accepted.includes(method)
+          return (
+            <button
+              type="button"
+              key={method}
+              disabled={updateMutation.isPending}
+              onClick={() => toggle(method)}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
+                active ? 'bg-brand text-white' : 'border border-hairline text-muted-2'
+              }`}
+            >
+              {label}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function PricingSuggestions({ establishmentId }) {
   const queryClient = useQueryClient()
   const [appliedId, setAppliedId] = useState(null)
@@ -45,7 +109,7 @@ function PricingSuggestions({ establishmentId }) {
 
   if (data.status === 'insufficient_data') {
     return (
-      <div className="rounded-[18px] border border-hairline bg-white p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+      <div className="rounded-[18px] border border-hairline bg-surface p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
         <h2 className="font-heading text-sm font-bold text-ink">Sugestão de precificação dinâmica</h2>
         <p className="mt-2 text-sm text-muted">
           Ainda não há histórico suficiente (mínimo de semanas de dado) para a IA sugerir ajustes.
@@ -56,7 +120,7 @@ function PricingSuggestions({ establishmentId }) {
 
   if (data.status === 'ia_unavailable') {
     return (
-      <div className="rounded-[18px] border border-hairline bg-white p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+      <div className="rounded-[18px] border border-hairline bg-surface p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
         <h2 className="font-heading text-sm font-bold text-ink">Sugestão de precificação dinâmica</h2>
         <p className="mt-2 text-sm text-status-problema">Serviço de IA indisponível no momento.</p>
       </div>
@@ -64,7 +128,7 @@ function PricingSuggestions({ establishmentId }) {
   }
 
   return (
-    <div className="rounded-[18px] border border-hairline bg-white p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+    <div className="rounded-[18px] border border-hairline bg-surface p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
       <h2 className="font-heading text-sm font-bold text-ink">Sugestão de precificação dinâmica</h2>
       <p className="mt-1 text-xs text-muted-2">
         A IA nunca altera tarifa sozinha — cada sugestão só vale se você clicar em "Aplicar".
@@ -241,11 +305,12 @@ export function TarifasPage() {
 
       <div className="flex flex-col gap-4 p-8">
         <PricingSuggestions establishmentId={establishment.id} />
+        <PaymentMethodsSettings establishmentId={establishment.id} />
 
         {showForm && (
           <form
             onSubmit={handleSubmit}
-            className="flex flex-col gap-3 rounded-[18px] border border-hairline bg-white p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]"
+            className="flex flex-col gap-3 rounded-[18px] border border-hairline bg-surface p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]"
           >
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1 text-sm text-muted-2">
@@ -339,12 +404,12 @@ export function TarifasPage() {
         {rules?.map((rule) => (
           <div
             key={rule.id}
-            className="flex items-center justify-between rounded-[18px] border border-hairline bg-white p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]"
+            className="flex items-center justify-between rounded-[18px] border border-hairline bg-surface p-5 shadow-[0_2px_14px_rgba(14,10,26,0.05)]"
           >
             <div className="flex items-center gap-4">
               <span
                 className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-                  rule.is_special ? 'bg-brand/10 text-brand' : 'bg-[#F4F2FB] text-slate-600'
+                  rule.is_special ? 'bg-brand/10 text-brand' : 'bg-[#F4F2FB] text-muted-2'
                 }`}
               >
                 {rule.is_special ? 'Especial' : 'Padrão'}

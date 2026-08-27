@@ -37,7 +37,7 @@ export function RelatoriosPage() {
       <div className="flex flex-col gap-5 p-8">
         <div className="grid grid-cols-4 gap-4">
           {kpis.map(([label, value]) => (
-            <div key={label} className="rounded-[18px] border border-hairline bg-white p-[18px] shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+            <div key={label} className="rounded-[18px] border border-hairline bg-surface p-[18px] shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
               <p className="text-[11px] font-bold uppercase tracking-wide text-muted">{label}</p>
               <p className="mt-2 text-2xl font-bold text-ink">
                 {isLoading ? '—' : (value ?? '—')}
@@ -46,7 +46,7 @@ export function RelatoriosPage() {
           ))}
         </div>
 
-        <div className="rounded-[18px] border border-hairline bg-white p-[22px] shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
+        <div className="rounded-[18px] border border-hairline bg-surface p-[22px] shadow-[0_2px_14px_rgba(14,10,26,0.05)]">
           <h2 className="mb-4 font-heading text-sm font-bold text-ink">Receita diária</h2>
           {report?.daily_revenue.length ? (
             <div className="flex h-[180px] items-end gap-1.5">

@@ -1,8 +1,48 @@
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
+import { apiClient } from '../lib/apiClient'
 import { useAuth } from '../lib/auth'
+import { formatCurrency, formatEnergyKwh } from '../lib/format'
+
+// Tela de impacto (Prioridade 5, Tarefa 5.3) - antes do login, sem autenticacao
+// (GET /fleet/impact e publico). Numeros reais da base de demonstracao atual, nunca
+// inventados - se a base for pequena, aparece pequena mesmo.
+function ImpactHero() {
+  const { data } = useQuery({
+    queryKey: ['fleet-impact'],
+    queryFn: () => apiClient.get('/fleet/impact'),
+  })
+
+  if (!data) return null
+
+  return (
+    <div className="mb-6 w-full max-w-sm">
+      <div className="grid grid-cols-3 gap-2 rounded-2xl border border-hairline bg-surface px-3 py-4 text-center">
+        <div>
+          <p className="font-heading text-lg font-bold text-ink">{formatEnergyKwh(data.total_kwh_managed)}</p>
+          <p className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-2">gerenciados</p>
+        </div>
+        <div>
+          <p className="font-heading text-lg font-bold text-ink">
+            {Number(data.co2_avoided_kg).toFixed(1)} kg
+          </p>
+          <p className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-2">CO₂ evitado</p>
+        </div>
+        <div>
+          <p className="font-heading text-lg font-bold text-ink">{formatCurrency(data.total_revenue_processed)}</p>
+          <p className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-2">receita habilitada</p>
+        </div>
+      </div>
+      <p className="mt-1.5 text-center text-[10px] text-muted-2">
+        Dado real da base de demonstração atual ({data.establishments_count} estabelecimento
+        {data.establishments_count !== 1 ? 's' : ''})
+      </p>
+    </div>
+  )
+}
 
 export function LoginPage() {
   const { login } = useAuth()
@@ -27,7 +67,8 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-cream p-4 font-body">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-cream p-4 font-body">
+      <ImpactHero />
       <Card className="w-full max-w-sm">
         <div className="mb-6 flex items-center gap-2.5">
           <svg width="26" height="26" viewBox="0 0 24 24" className="shrink-0">

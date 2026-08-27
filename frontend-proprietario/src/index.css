@@ -10,6 +10,10 @@
   --color-status-reservado: #d97706;
   --color-status-offline: #6b7280;
 
+  /* --color-ink-fixed: cor fixa dos elementos que sao sempre escuros (sidebar/bolhas de
+     chat do proprio usuario) - nao muda com o tema, ao contrario de --color-ink (texto
+     principal, inverte no modo escuro abaixo). */
+  --color-ink-fixed: #0e0a1a;
   --color-ink: #0e0a1a;
   --color-ink-soft: #2a2732;
   --color-brand: #e60012;
@@ -17,6 +21,7 @@
   --color-accent-purple: #7c3aed;
   --color-accent-orange: #ff7a1a;
   --color-cream: #faf9f6;
+  --color-surface: #ffffff;
   --color-hairline: #eae6f2;
   --color-muted: #8e8b99;
   --color-muted-2: #726d7d;
@@ -27,10 +32,28 @@
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 }
 
+/* Modo escuro: so redefine os tokens de superficie/texto (nunca --color-ink-fixed, que e
+   deliberadamente constante - a sidebar ja e escura no modo claro). Nenhuma classe
+   Tailwind muda nas telas - so o valor por tras do token, por isso "mantem o template".
+   Ativado via atributo em <html> (ver src/lib/theme.js), com padrao inicial respeitando
+   prefers-color-scheme. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-ink: #f2f0f5;
+  --color-ink-soft: #d3cee0;
+  --color-cream: #131019;
+  --color-surface: #201c2b;
+  --color-hairline: #343043;
+  --color-muted: #a99fc0;
+  --color-muted-2: #8f86a3;
+  --color-muted-3: #72697f;
+}
+
 body {
   font-family: var(--font-body);
   color: var(--color-ink);
   background: var(--color-cream);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 @keyframes cgm-flow {

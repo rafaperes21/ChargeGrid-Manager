@@ -131,7 +131,7 @@ function DashboardContent({ data, powerPct, overThreshold }) {
         )}
 
         <div className="grid grid-cols-[1.7fr_1fr_1fr] gap-4">
-          <div className="rounded-[22px] border border-hairline bg-white p-5 shadow-[0_4px_20px_rgba(14,10,26,0.05)]">
+          <div className="rounded-[22px] border border-hairline bg-surface p-5 shadow-[0_4px_20px_rgba(14,10,26,0.05)]">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
@@ -160,7 +160,7 @@ function DashboardContent({ data, powerPct, overThreshold }) {
             <p className="mt-1.5 text-[10px] text-muted">limiar 90% marcado</p>
           </div>
 
-          <div className="flex flex-col justify-center rounded-[22px] border border-hairline bg-white p-5 shadow-[0_4px_20px_rgba(14,10,26,0.05)]">
+          <div className="flex flex-col justify-center rounded-[22px] border border-hairline bg-surface p-5 shadow-[0_4px_20px_rgba(14,10,26,0.05)]">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Receita hoje</p>
             <p ref={revenueTodayRef} className="mt-1.5 font-heading text-[28px] font-bold text-ink" />
             <p className="mt-1.5 text-[11px] text-muted-2">
@@ -168,7 +168,7 @@ function DashboardContent({ data, powerPct, overThreshold }) {
             </p>
           </div>
 
-          <div className="flex flex-col justify-center rounded-[22px] border border-hairline bg-white p-5 shadow-[0_4px_20px_rgba(14,10,26,0.05)]">
+          <div className="flex flex-col justify-center rounded-[22px] border border-hairline bg-surface p-5 shadow-[0_4px_20px_rgba(14,10,26,0.05)]">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Sessões ativas</p>
             <p className="mt-1.5 font-heading text-[28px] font-bold text-ink">
               {data.active_sessions_count}
@@ -182,7 +182,7 @@ function DashboardContent({ data, powerPct, overThreshold }) {
           </div>
           <div className="grid grid-cols-4 gap-3 lg:grid-cols-8">
             {data.chargers.map((charger) => (
-              <div key={charger.id} className="rounded-2xl border border-hairline bg-white p-3.5">
+              <div key={charger.id} className="rounded-2xl border border-hairline bg-surface p-3.5">
                 <p className="mb-2 font-mono text-[13px] font-semibold text-ink">{charger.spot_label}</p>
                 <StatusBadge status={charger.status} />
                 {charger.latest_power_kw !== null && Number(charger.latest_power_kw) > 0 && (
@@ -212,7 +212,7 @@ function DashboardContent({ data, powerPct, overThreshold }) {
           )}
           <div
             ref={anomaliesRef}
-            className="overflow-hidden rounded-[22px] border border-hairline bg-white shadow-[0_4px_20px_rgba(14,10,26,0.05)]"
+            className="overflow-hidden rounded-[22px] border border-hairline bg-surface shadow-[0_4px_20px_rgba(14,10,26,0.05)]"
           >
             {data.anomalies.length === 0 ? (
               <p className="px-[18px] py-4 text-sm text-muted">Nenhuma anomalia detectada.</p>

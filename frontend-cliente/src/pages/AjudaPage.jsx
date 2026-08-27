@@ -1,7 +1,7 @@
 export function AjudaPage() {
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex items-center gap-2.5 bg-ink px-5 py-4 text-white">
+      <div className="flex items-center gap-2.5 bg-ink-fixed px-5 py-4 text-white">
         <svg width="22" height="22" viewBox="0 0 24 24" className="shrink-0">
           <defs>
             <linearGradient id="cbolt3" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">
