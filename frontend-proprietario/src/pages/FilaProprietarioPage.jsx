@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
+import { useRef } from 'react'
 import { apiClient } from '../lib/apiClient'
 import { useAuth } from '../lib/auth'
+import { Flip, prefersReducedMotion, useGSAP } from '../lib/motion'
 
 function formatElapsedSince(isoString) {
   const elapsedMinutes = Math.max(0, Math.floor((Date.now() - new Date(isoString).getTime()) / 60_000))
@@ -21,6 +23,21 @@ export function FilaProprietarioPage() {
   })
 
   const reservedCount = entries?.filter((e) => e.reserved_charger_id).length ?? 0
+
+  const listRef = useRef(null)
+  const prevFlipStateRef = useRef(null)
+
+  // Animacao de reordenacao (FLIP: First Last Invert Play) - cada corrida do efeito captura
+  // o layout atual pra usar como "antes" na proxima vez que `entries` mudar de ordem.
+  useGSAP(() => {
+    if (!listRef.current) return
+    const rows = listRef.current.querySelectorAll('[data-queue-row]')
+    if (prevFlipStateRef.current && !prefersReducedMotion()) {
+      Flip.from(prevFlipStateRef.current, { duration: 0.5, ease: 'power2.inOut', nested: true })
+    }
+    prevFlipStateRef.current = Flip.getState(rows)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries?.map((e) => e.id).join(',')])
 
   return (
     <div className="flex flex-1 flex-col">
@@ -58,9 +75,11 @@ export function FilaProprietarioPage() {
             <p className="px-[18px] py-8 text-center text-sm text-muted">Nenhum cliente na fila no momento.</p>
           )}
 
+          <div ref={listRef}>
           {entries?.map((entry, index) => (
             <div
               key={entry.id}
+              data-queue-row
               className="grid grid-cols-[60px_1.4fr_1fr_1fr_140px] items-center border-t border-hairline px-[18px] py-3"
             >
               <span className="text-sm font-bold text-ink">{index + 1}</span>
@@ -78,6 +97,7 @@ export function FilaProprietarioPage() {
               </span>
             </div>
           ))}
+          </div>
         </div>
 
         <p className="text-[11px] text-muted">

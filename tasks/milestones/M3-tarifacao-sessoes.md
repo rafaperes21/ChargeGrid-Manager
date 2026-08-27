@@ -117,6 +117,16 @@ financeiro por período, usado por `RelatoriosPage.jsx`). `GET /sessions/current
 `GET /sessions/{id}/receipt` ganhou a decomposição em R$ (bruto/promoção/desconto/franquia),
 reconstruída do snapshot já persistido — nunca reprocessada contra tarifa/plano atuais.
 
+**Correção de contrato (motion design, mesma rodada):** `GET /sessions/current` podia devolver
+a própria sessão com `status` já `finished`/`error` no exato poll em que `sync_session` fecha
+ela (o objeto muda de status dentro da mesma chamada, antes do próximo poll parar de
+encontrá-la pelo filtro `pending`/`active`). Isso vazava um status terminal pro cliente numa
+resposta 200, quebrando a suposição de "pending/active ou 404" que o frontend (tela de
+confirmação de sessão encerrada) dependia. Corrigido: o endpoint agora sempre 404 se, depois de
+`sync_session`, o status não for mais `pending`/`active` — quem quiser o resultado fechado usa
+`GET /sessions/{id}/receipt`. Teste:
+`test_read_current_session_404_no_mesmo_poll_que_fecha_a_sessao`.
+
 ## Armadilhas
 
 - Recalcular extrato antigo lendo a tarifa atual é o bug clássico deste domínio. Snapshot.

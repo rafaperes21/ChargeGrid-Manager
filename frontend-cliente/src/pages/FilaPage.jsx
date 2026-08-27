@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ApiError, apiClient } from '../lib/apiClient'
+import { animateNumber, MICRO, useGSAP } from '../lib/motion'
+
+const formatPosition = (value) => String(Math.round(value))
 
 const RESERVATION_WINDOW_MINUTES = 15
 
@@ -51,6 +54,20 @@ export function FilaPage() {
     return () => clearInterval(interval)
   }, [entry?.reserved_at])
 
+  const positionRef = useRef(null)
+  const prevPositionRef = useRef(null)
+
+  // Transicao suave ao mudar de posicao na fila - conta do valor anterior ate o novo em vez
+  // de saltar pro numero novo.
+  useGSAP(() => {
+    if (!entry || !positionRef.current) return
+    const to = entry.position
+    const from = prevPositionRef.current ?? to
+    animateNumber(positionRef.current, { from, to, ...MICRO, formatter: formatPosition })
+    prevPositionRef.current = to
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry?.position])
+
   if (isLoading) {
     return <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted">Carregando…</div>
   }
@@ -84,7 +101,7 @@ export function FilaPage() {
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-2">Posição</span>
-          <span className="text-4xl font-extrabold text-ink">{entry.position}</span>
+          <span ref={positionRef} className="text-4xl font-extrabold text-ink" />
         </div>
       </div>
 

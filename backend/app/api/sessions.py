@@ -51,6 +51,15 @@ def read_current_session(
         )
     session = sync_session(db, session)
 
+    if session.status not in (ChargingSessionStatus.pending, ChargingSessionStatus.active):
+        # sync_session pode fechar a sessao (finished/error) nesta mesma chamada - o
+        # contrato deste endpoint e sempre "pending/active, ou 404", nunca vazar um status
+        # terminal so porque a transicao aconteceu neste poll especifico. Quem quiser o
+        # resultado fechado usa GET /sessions/{id}/receipt.
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Nenhuma sessao em andamento"
+        )
+
     estimated_amount_due = None
     if session.status == ChargingSessionStatus.active:
         estimated_amount_due = estimate_live_amount(db, session, datetime.now(tz=UTC))

@@ -21,6 +21,7 @@ Um milestone só começa quando as dependências dele estão marcadas como concl
 | M7 | [Chatbots (Gemini + LangChain)](milestones/M7-chatbots.md) | M3, M4, M5 | integração |
 | M8 | [Módulo de IA/ML](milestones/M8-modulo-ia.md) | M2, M3 | ML |
 | M9 | [Deploy, demo e documentação](milestones/M9-deploy-demo.md) | todos | todos |
+| M10 | [Motion design, mapa com geolocalização e carregador 3D](milestones/M10-motion-mapa-3d.md) | M3, M4, M5 | frontend |
 
 ## Caminho crítico
 

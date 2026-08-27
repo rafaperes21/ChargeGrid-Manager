@@ -1,14 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button } from '../components/ui/Button'
 import { ApiError, apiClient } from '../lib/apiClient'
 import { useAuth } from '../lib/auth'
+import { gsap, TRANSITION, useGSAP } from '../lib/motion'
 
 const DAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 
 function PricingSuggestions({ establishmentId }) {
   const queryClient = useQueryClient()
   const [appliedId, setAppliedId] = useState(null)
+  const cardsRef = useRef(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['pricing-suggestions', establishmentId],
@@ -16,6 +18,19 @@ function PricingSuggestions({ establishmentId }) {
     enabled: Boolean(establishmentId),
     refetchInterval: 60_000,
   })
+
+  // Entrada com leve slide+fade a cada vez que a lista de sugestoes muda (novo horizonte,
+  // sugestao aplicada e removida, etc.) - gsap.set() garante o estado inicial sincrono
+  // (ver feedback_gsap_counter_gotcha: sem isso, gsap.fromTo() com o mesmo from/to nunca
+  // dispara onUpdate e o card fica sem transicao visivel).
+  useGSAP(() => {
+    if (!cardsRef.current) return
+    const cards = cardsRef.current.querySelectorAll('[data-suggestion-card]')
+    if (cards.length === 0) return
+    gsap.set(cards, { autoAlpha: 0, y: 8 })
+    gsap.to(cards, { autoAlpha: 1, y: 0, stagger: 0.06, ...TRANSITION })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.suggestions?.length])
 
   const applyMutation = useMutation({
     mutationFn: ({ tariffRuleId, price }) =>
@@ -59,7 +74,7 @@ function PricingSuggestions({ establishmentId }) {
         <p className="mt-3 text-sm text-muted">Nenhum ajuste sugerido pro horizonte atual.</p>
       )}
 
-      <div className="mt-3 flex flex-col gap-2.5">
+      <div ref={cardsRef} className="mt-3 flex flex-col gap-2.5">
         {data.suggestions.map((s) => {
           const key = `${s.tariff_rule_id}-${s.day_of_week}-${s.hour_local}`
           const isIncrease = s.direction === 'increase'
@@ -67,6 +82,7 @@ function PricingSuggestions({ establishmentId }) {
           return (
             <div
               key={key}
+              data-suggestion-card
               className="flex items-center justify-between gap-3 rounded-2xl border border-hairline px-4 py-3"
             >
               <div>
