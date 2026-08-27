@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     ollama_model: str = "llama3.1:8b"
     ia_service_url: str = "http://localhost:8001"
 
+    # Integracao SEMS+ (M2) - trocar "simulator" por "real" (quando o RealSemsClient sair do
+    # stub) nao deve exigir mudar nada fora de app/integracoes/.
+    sems_source: str = "simulator"
+    poll_interval_seconds: int = 60
+    # Task assincrona no startup do FastAPI so roda se isto for true - default false pra nao
+    # rodar durante os testes (TestClient importa app.main) nem em ambientes sem Postgres de pe.
+    polling_enabled: bool = False
+    polling_offline_after_failures: int = 3
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property

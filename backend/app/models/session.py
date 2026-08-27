@@ -4,9 +4,11 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from app.models.enums import ChargingSessionStatus
 
 if TYPE_CHECKING:
     from app.models.charger import Charger
@@ -25,6 +27,10 @@ class ChargingSession(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     charger_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("chargers.id"))
     establishment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("establishments.id"))
 
+    status: Mapped[ChargingSessionStatus] = mapped_column(
+        SAEnum(ChargingSessionStatus, name="charging_session_status"),
+        default=ChargingSessionStatus.pending,
+    )
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     energy_kwh: Mapped[Decimal | None] = mapped_column(Numeric(12, 3))

@@ -24,3 +24,10 @@ class PlanKind(str, enum.Enum):
     avulso = "avulso"
     mensal = "mensal"
     trimestral = "trimestral"
+
+
+class ChargingSessionStatus(str, enum.Enum):
+    pending = "pending"
+    active = "active"
+    finished = "finished"
+    error = "error"

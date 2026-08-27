@@ -1,6 +1,6 @@
 # M2 — Simulador de hardware e polling
 
-Status: em andamento
+Status: concluído (com uma decisão de escopo registrada abaixo)
 Responsável: —
 Depende de: M1
 Skill: `.claude/skills/integracao-sems-simulador/`
@@ -12,18 +12,25 @@ sem isso. **É o gargalo escondido do projeto; comece cedo.**
 
 ## Escopo
 
-- [ ] Interface `SemsClient` + `SimulatedSemsClient` e `RealSemsClient` (stub), escolhidos
-      por `SEMS_SOURCE` no `.env` — `backend/app/integracoes/` só tem `.gitkeep`, nada implementado
-- [ ] Schema `ChargerReading` conforme a skill (existe o modelo SQLAlchemy `ChargerReading`, mas
-      não o contrato/schema Pydantic de polling descrito na skill)
-- [ ] Serviço de polling assíncrono, intervalo configurável (default 60 s) — não existe;
-      dados de demo entram via script batch (`historical_generator.py`), não via polling contínuo
-- [ ] Persistência idempotente em `charger_readings` (chave = timestamp da leitura no device) —
-      depende do serviço de polling acima
+- [x] Interface `SemsClient` + `SimulatedSemsClient` e `RealSemsClient` (stub), escolhidos
+      por `SEMS_SOURCE` no `.env` (`app/integracoes/sems_client.py`, `get_sems_client()`)
+- [x] Schema `ChargerReading` conforme a skill — `ChargerReadingContract` em
+      `app/schemas/charger_reading.py` (reaproveita o `ChargerStatus` do resto do app em vez
+      de duplicar o enum; só `livre/carregando/problema/offline` saem de uma leitura real,
+      `reservado` é estado de negócio nosso)
+- [x] Serviço de polling assíncrono, intervalo configurável — `app/integracoes/polling.py`
+      (`PollingService`, `POLL_INTERVAL_SECONDS`, default 60s). Desligado por padrão
+      (`POLLING_ENABLED=false`): roda via `python -m app.integracoes.polling` (worker
+      separado) ou junto do FastAPI (`lifespan` em `app/main.py`) se a env var for `true`
+- [x] Persistência idempotente em `charger_readings` — índice único `(charger_id, timestamp)`
+      via migration + checagem antes de inserir (check-then-insert, não upsert de dialeto
+      específico — mesmo comportamento em Postgres e SQLite dos testes)
 - [x] Integração de energia por **trapézio** entre leituras (`backend/simulador/energy.py`,
-      com teste dedicado)
-- [ ] Tolerância a falha: SEMS+ indisponível não derruba a API; após N falhas marca `offline` —
-      não se aplica ainda (não há polling rodando contra nada)
+      com teste dedicado) — movida para `app/services/energy_integration.py` durante o M3,
+      reaproveitada tanto pelo simulador quanto pelo motor de sessão
+- [x] Tolerância a falha: `PollingService` conta falhas consecutivas do `SemsClient` e marca
+      todos os carregadores `offline` após N (`POLLING_OFFLINE_AFTER_FAILURES`, default 3),
+      sem derrubar a API — testado com um `SemsClient` fake que sempre falha
 - [x] Simulador com curva P(t): rampa → platô → taper acima de 80 % → fim, com ruído de ±2 %
       (`backend/simulador/curve_engine.py`)
 - [x] Limite pelo OBC do veículo, não só pelo carregador (`backend/simulador/vehicles.py`)
@@ -32,6 +39,26 @@ sem isso. **É o gargalo escondido do projeto; comece cedo.**
 - [x] Cenários injetáveis: pico com fila cheia, falha de equipamento, pico anormal de consumo
       (`backend/simulador/anomalies.py`)
 - [x] `--seed` para reprodutibilidade (`historical_generator.py --seed`)
+
+## Nota de implementação — leitura ao vivo correlacionada com sessão real
+
+O `SimulatedSemsClient` não sorteia sessões de carregamento por conta própria (o que o
+`historical_generator.py` faz para o histórico retroativo). A cada tick, ele pergunta se o
+carregador tem uma `ChargingSession` `pending`/`active` aberta (M3) e, se tiver, gera o ponto
+da curva P(t) correspondente ao tempo decorrido desde `started_at`; sem sessão aberta, o
+carregador fica ocioso (`livre`, potência zero). Isso é deliberado, não um atalho: quem
+controla início/fim de sessão é o ChargeGrid-Manager, não o hardware (`CLAUDE.md`), e fazer o
+simulador inventar carregamentos por conta própria estaria simulando esse contrato errado.
+
+Efeito prático: rodar o polling e abrir uma sessão via `POST /sessions/start` já é suficiente
+para ela evoluir sozinha (`pending → active → finished`, com `energy_kwh`/`amount_due`
+calculados) — sem precisar inserir `charger_readings` na mão. Validado ao vivo contra o
+servidor real antes de fechar este milestone.
+
+**Fica de fora, deliberadamente**: tráfego "ambiente" (carregadores carregando sozinhos por
+probabilidade horária/perfil de estabelecimento, sem ninguém logado testando) — alimentaria o
+dashboard e o treino da IA fora de uma demo ativa, mas não é o mesmo mecanismo e não bloqueava
+nada além dele mesmo. Próxima extensão natural do `SimulatedSemsClient`, não uma pendência.
 
 ## Plano de execução
 
@@ -71,13 +98,16 @@ aqui.
 
 ## Critérios de aceite
 
-- Rodando o simulador por 10 min, `charger_readings` recebe leituras plausíveis de todos os
-  carregadores e nenhuma duplicada.
-- A curva de uma sessão, plotada, tem rampa, platô e taper visíveis — não é uma reta.
-- O script de histórico gera 90 dias em menos de 1 min e os dados passam numa inspeção visual
-  (pico noturno em shopping, pico matinal em empresa).
-- Trocar `SEMS_SOURCE` não exige mudar nenhuma linha fora de `integracoes/`.
-- Os cenários de falha efetivamente disparam os alertas de M8.
+- [x] Rodando o simulador contra o servidor real, `charger_readings` recebe leituras
+      plausíveis e nenhuma duplicada (validado ao vivo + `test_polling.py`/`test_sems_client.py`)
+- [x] A curva de uma sessão tem rampa, platô e taper visíveis — não é uma reta
+      (`curve_engine.py`, já validado desde a parte batch do milestone)
+- [x] O script de histórico gera 90 dias em menos de 1 min (já validado antes desta rodada)
+- [x] Trocar `SEMS_SOURCE` não exige mudar nenhuma linha fora de `integracoes/` — testado via
+      `get_sems_client()` despachando por `settings.sems_source`
+- [ ] Os cenários de falha efetivamente disparam os alertas de M8 — a detecção de falha do
+      *polling* (SEMS+ fora do ar → `offline`) está testada; a integração ponta a ponta com os
+      alertas do M8 (potência zero prolongada, etc.) não foi reexercitada nesta rodada
 
 ## Armadilhas
 
