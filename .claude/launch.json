@@ -11,6 +11,15 @@
       "port": 8000
     },
     {
+      "name": "ia",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd \"/home/gabriel/goodwe - projeto/ia\" && exec .venv/bin/uvicorn app.main:app --reload --port 8001"
+      ],
+      "port": 8001
+    },
+    {
       "name": "frontend-cliente",
       "runtimeExecutable": "bash",
       "runtimeArgs": [

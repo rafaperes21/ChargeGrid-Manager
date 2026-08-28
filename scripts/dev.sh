@@ -10,6 +10,10 @@
 # zero (seed e gerador de historico ja se protegem sozinhos; o script pula venv/node_modules
 # que ja existem).
 #
+# `polling` (worker continuo de app.integracoes.polling) reaproveita o venv do backend, sem
+# setup proprio - adicionado em 28/08/2026 porque sem ele nenhuma sessao evolui de pending
+# pra active e a IA nao tem leitura nova pra aprender.
+#
 # Uso:
 #   ./scripts/dev.sh                          # sobe tudo
 #   ./scripts/dev.sh --only backend,ia         # so backend + IA (sem os frontends)
@@ -19,7 +23,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ALL_SERVICES=(backend ia frontend-proprietario frontend-cliente)
+ALL_SERVICES=(backend ia polling frontend-proprietario frontend-cliente)
 ONLY=("${ALL_SERVICES[@]}")
 SKIP_SETUP=0
 RECREATE=0
@@ -163,6 +167,9 @@ fi
 if contains ia "${ONLY[@]}"; then
   NEEDS_POSTGRES=1
 fi
+if contains polling "${ONLY[@]}"; then
+  NEEDS_POSTGRES=1
+fi
 
 if [ "$NEEDS_POSTGRES" = "1" ]; then
   echo
@@ -179,7 +186,9 @@ if [ "$SKIP_SETUP" = "0" ]; then
   echo
   echo "[3/4] Setup dos servicos..."
 
-  if contains backend "${ONLY[@]}"; then
+  # polling reaproveita o venv/deps/migrations/seed do backend - roda o mesmo setup se
+  # qualquer um dos dois foi pedido, pra `--only polling` sozinho tambem funcionar.
+  if contains backend "${ONLY[@]}" || contains polling "${ONLY[@]}"; then
     echo "backend:"
     BACKEND_PY=$(ensure_python_venv "$ROOT/backend")
     install_requirements "$ROOT/backend" "$BACKEND_PY"
@@ -222,6 +231,9 @@ fi
 if contains ia "${ONLY[@]}"; then
   run_labeled ia bash -c "cd '$ROOT/ia' && exec '$ROOT/ia/.venv/bin/python' -m uvicorn app.main:app --reload --port 8001"
 fi
+if contains polling "${ONLY[@]}"; then
+  run_labeled polling bash -c "cd '$ROOT/backend' && exec '$ROOT/backend/.venv/bin/python' -m app.integracoes.polling"
+fi
 if contains frontend-proprietario "${ONLY[@]}"; then
   run_labeled proprietario bash -c "cd '$ROOT/frontend-proprietario' && exec npm run dev"
 fi
@@ -236,6 +248,9 @@ if contains backend "${ONLY[@]}"; then
 fi
 if contains ia "${ONLY[@]}"; then
   echo "  ia:           http://localhost:8001/docs"
+fi
+if contains polling "${ONLY[@]}"; then
+  echo "  polling:      sem porta HTTP - acompanhe pelo log [polling] acima"
 fi
 if contains frontend-proprietario "${ONLY[@]}"; then
   echo "  proprietario: veja a porta no log [proprietario] acima (Vite, geralmente 5173)"
