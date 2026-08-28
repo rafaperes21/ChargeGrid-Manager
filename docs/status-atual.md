@@ -78,25 +78,26 @@ Ordem de corte definida em `tasks/README.md` se o tempo apertar: modo empresaria
 | Suporte por estabelecimento (`support_phone`/`support_email` do dono) | ideia registrada, não implementada | Diferente do `SUPPORT_CONTACT` acima (que é da plataforma) — esse seria por estabelecimento, ainda não tem campo no banco. |
 | Capacidade de bateria por modelo de veículo | `backend/app/services/vehicle_battery.py` | Valores aproximados de especificação pública do fabricante (podem variar por versão/ano/mercado) — usados só pra estimar %/tempo restante, nunca apresentados como o dado exato do carro do cliente. Estimativa também assume que a sessão começou com o veículo vazio (0%), única forma de estimar sem telemetria real da bateria. |
 
-## Como regenerar o ambiente de demo do zero
+## Como subir e regenerar o ambiente de demo do zero
+
+**Subir tudo** (Postgres, backend, IA, worker de polling contínuo, os dois frontends):
+`scripts/dev.sh`/`scripts/dev.ps1` já existiam (feitos por rafaperes21) cuidando de
+`.env`/venv/`npm install`/migrations/seed na primeira vez; faltava neles só o worker de
+polling, adicionado em 28/08/2026 depois que a falta dele (e do serviço `ia/`) causou duas
+sessões de "por que isso não está funcionando" nesta rodada de trabalho — sem `polling` no
+ar nenhuma sessão evolui de `pending` pra `active`, e sem `ia/` a sugestão de precificação e
+a detecção de anomalias aparecem como "indisponível".
+
+```bash
+./scripts/dev.sh                   # Linux/macOS — sobe tudo, inclusive polling
+./scripts/dev.ps1                  # Windows — idem
+./scripts/dev.sh --only backend,ia # só um subconjunto, ver --help/comentário do script
+```
+
+**Regenerar os dados de demo do zero** (banco vazio):
 
 ```bash
 cd backend && alembic upgrade head
 python -m app.db.seed              # estabelecimento, carregadores, planos, 1 owner, 1 customer
 python -m app.db.seed_demo_history # 4 clientes de demo com historico "real e possivel" (provisorio)
-```
-
-Pra sugestão de precificação dinâmica e detecção de anomalias funcionarem (em vez de "IA
-indisponível"), o serviço `ia/` precisa estar rodando à parte — nenhum dos comandos acima
-sobe ele:
-
-```bash
-cd ia && uvicorn app.main:app --port 8001
-```
-
-Pro botão "Simular leitura do cartão RFID" (`SessaoPage.jsx`) progredir de verdade
-(`pending` → `active`), o worker de polling também precisa estar rodando à parte:
-
-```bash
-cd backend && python -m app.integracoes.polling
 ```

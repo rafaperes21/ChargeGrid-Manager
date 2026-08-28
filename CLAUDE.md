@@ -95,6 +95,21 @@ SEMS+ real deve ser mudar uma variável de ambiente, nada mais.
 
 ### Comandos
 
+Pra subir a stack inteira de uma vez (Postgres, backend, IA, worker de polling contínuo e os
+dois frontends) — cuida de `.env`, venv, `npm install`, migrations e seed sozinho na primeira
+vez, e é seguro rodar de novo depois (`--skip-setup` pula tudo isso e só abre os serviços):
+
+```bash
+./scripts/dev.sh                      # sobe tudo (Linux/macOS)
+./scripts/dev.ps1                     # idem, no Windows
+./scripts/dev.sh --only backend,ia    # só um subconjunto
+```
+
+Sem o worker `polling` no ar, nenhuma sessão evolui de `pending` pra `active` e a IA não tem
+leitura nova pra aprender — ele já vem incluído por padrão nos dois scripts acima.
+
+Ou individualmente:
+
 ```bash
 cd backend && uvicorn app.main:app --reload
 ```

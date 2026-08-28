@@ -12,8 +12,10 @@
     que ja existem).
 
 .PARAMETER Only
-    Lista de servicos a considerar. Default: todos (backend, ia, frontend-proprietario,
-    frontend-cliente). Ex.: -Only backend,ia (util para o video da IA, sem os frontends).
+    Lista de servicos a considerar. Default: todos (backend, ia, polling,
+    frontend-proprietario, frontend-cliente). Ex.: -Only backend,ia (util para o video da IA,
+    sem os frontends). `polling` (worker continuo de app.integracoes.polling) reaproveita o
+    venv do backend, sem setup proprio - sem ele nenhuma sessao evolui de pending pra active.
 
 .PARAMETER SkipSetup
     Pula instalacao/migrations/seed/gerador - so abre as janelas dos servicos. Uso do dia a
@@ -34,7 +36,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string[]]$Only = @('backend', 'ia', 'frontend-proprietario', 'frontend-cliente'),
+    [string[]]$Only = @('backend', 'ia', 'polling', 'frontend-proprietario', 'frontend-cliente'),
     [switch]$SkipSetup,
     [switch]$Recreate
 )
@@ -42,7 +44,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
-$allServiceNames = @('backend', 'ia', 'frontend-proprietario', 'frontend-cliente')
+$allServiceNames = @('backend', 'ia', 'polling', 'frontend-proprietario', 'frontend-cliente')
 $postgresUser = 'chargegrid'  # precisa bater com POSTGRES_USER do .env.example da raiz
 
 foreach ($name in $Only) {
@@ -140,7 +142,7 @@ foreach ($name in $allServiceNames) {
     Ensure-Env (Join-Path $root $name)
 }
 
-$needsPostgres = ($Only -contains 'backend') -or ($Only -contains 'ia')
+$needsPostgres = ($Only -contains 'backend') -or ($Only -contains 'ia') -or ($Only -contains 'polling')
 if ($needsPostgres) {
     Write-Host "`n[2/4] Subindo Postgres..."
     Push-Location $root
@@ -161,7 +163,9 @@ if ($needsPostgres) {
 if (-not $SkipSetup) {
     Write-Host "`n[3/4] Setup dos servicos..."
 
-    if ($Only -contains 'backend') {
+    # polling reaproveita o venv/deps/migrations/seed do backend - roda o mesmo setup se
+    # qualquer um dos dois foi pedido, pra -Only polling sozinho tambem funcionar.
+    if (($Only -contains 'backend') -or ($Only -contains 'polling')) {
         Write-Host "backend:"
         $backendDir = Join-Path $root 'backend'
         $backendPy = Ensure-PythonVenv $backendDir
@@ -210,6 +214,10 @@ if ($Only -contains 'ia') {
     $iaPy = Join-Path $root 'ia\.venv\Scripts\python.exe'
     Start-ServiceWindow 'ChargeGrid - ia' 'ia' "& '$iaPy' -m uvicorn app.main:app --reload --port 8001"
 }
+if ($Only -contains 'polling') {
+    $backendPy = Join-Path $root 'backend\.venv\Scripts\python.exe'
+    Start-ServiceWindow 'ChargeGrid - polling' 'backend' "& '$backendPy' -m app.integracoes.polling"
+}
 if ($Only -contains 'frontend-proprietario') {
     Start-ServiceWindow 'ChargeGrid - portal proprietario' 'frontend-proprietario' 'npm run dev'
 }
@@ -220,5 +228,6 @@ if ($Only -contains 'frontend-cliente') {
 Write-Host "`nPronto. URLs:"
 if ($Only -contains 'backend') { Write-Host "  backend:      http://localhost:8000/docs" }
 if ($Only -contains 'ia') { Write-Host "  ia:           http://localhost:8001/docs" }
+if ($Only -contains 'polling') { Write-Host "  polling:      sem porta HTTP - acompanhe pela janela aberta" }
 if ($Only -contains 'frontend-proprietario') { Write-Host "  proprietario: veja a porta na janela aberta (Vite, geralmente 5173)" }
 if ($Only -contains 'frontend-cliente') { Write-Host "  cliente:      veja a porta na janela aberta (Vite, geralmente 5174)" }
