@@ -39,10 +39,11 @@ def run() -> None:
             phase="trifasico",
             grid_connection_kw=Decimal("75.000"),
             power_limit_kw=Decimal("40.000"),
-            # Av. Paulista, 1578 - Sao Paulo/SP (coordenada real, so pra demo do mapa
-            # ter um ponto de referencia coerente - Tarefa 2.1 do M10).
-            latitude=Decimal("-23.561684"),
-            longitude=Decimal("-46.655981"),
+            # Av. Lins de Vasconcelos, 1222 - Sao Paulo/SP (campus FIAP Aclimacao, mesmo
+            # carregador HCA G2 real que inspira seed_demo_history.py - pedido do usuario
+            # em 28/08/2026 pro mapa mostrar a localizacao real do carregador).
+            latitude=Decimal("-23.574393"),
+            longitude=Decimal("-46.623548"),
         )
         db.add(establishment)
         db.flush()
