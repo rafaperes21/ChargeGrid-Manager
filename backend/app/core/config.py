@@ -12,8 +12,14 @@ class Settings(BaseSettings):
     google_oauth_client_id: str = ""
 
     # Origens do frontend liberadas no CORS - lista separada por virgula, nao JSON, para
-    # ficar simples de editar no .env.
-    cors_allowed_origins: str = "http://localhost:5173,http://localhost:5174"
+    # ficar simples de editar no .env. `localhost` e `127.0.0.1` sao origens *diferentes*
+    # pro CORSMiddleware mesmo apontando pro mesmo servidor - sem as duas variantes, quem
+    # abrir o frontend por IP em vez de nome (comum em navegador/SO configurado diferente)
+    # toma "Disallowed CORS origin" (400) bem no preflight do login, silenciosamente.
+    cors_allowed_origins: str = (
+        "http://localhost:5173,http://localhost:5174,"
+        "http://127.0.0.1:5173,http://127.0.0.1:5174"
+    )
 
     # Chatbot do proprietario (M7 minimo) - LLM local via Ollama, sem chave de API.
     ollama_base_url: str = "http://localhost:11434"
