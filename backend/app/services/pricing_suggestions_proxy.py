@@ -16,7 +16,11 @@ def fetch_pricing_suggestions(
 ) -> PricingSuggestionsResponse:
     url = f"{settings.ia_service_url}/pricing-suggestions/establishments/{establishment_id}"
     try:
-        response = requests.get(url, params={"horizon_hours": horizon_hours}, timeout=10)
+        # 30s, nao 10 (padrao dos outros proxies pro /ia): esse endpoint reajusta o Prophet
+        # do zero a cada chamada (sem cache de modelo) - medido em ~10s so pra isso, entao o
+        # timeout curto derrubava a sugestao pra "ia_unavailable" de forma intermitente
+        # mesmo com o /ia no ar e respondendo, sem qualquer erro real acontecendo.
+        response = requests.get(url, params={"horizon_hours": horizon_hours}, timeout=30)
         response.raise_for_status()
     except requests.RequestException:
         return PricingSuggestionsResponse(
