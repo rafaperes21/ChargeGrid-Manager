@@ -6,6 +6,7 @@ from app.models.charger import Charger, ChargerReading
 from app.models.enums import ChargerStatus, ChargingSessionStatus
 from app.models.session import ChargingSession
 from app.models.tariff import TariffRule
+from app.services.pricing import calculate_session_amount
 
 
 def _register_and_login(client, email: str, role: str) -> str:
@@ -115,6 +116,151 @@ def test_update_payment_method_404_sem_sessao_ativa(client):
         headers={"Authorization": f"Bearer {customer_token}"},
     )
     assert response.status_code == 404
+
+
+def test_stop_current_session_encerra_e_calcula_valor(client, db_session):
+    owner_token, charger_id = _setup_livre_charger(client, db_session)
+    customer_token = _register_and_login(client, "cliente-stop@teste.com", "customer")
+    _set_customer_rfid(client, customer_token)
+
+    establishment_id = client.get(
+        "/establishments/me", headers={"Authorization": f"Bearer {owner_token}"}
+    ).json()[0]["id"]
+    tariff_rate = Decimal("2.0000")
+    db_session.add(
+        TariffRule(
+            establishment_id=uuid.UUID(establishment_id),
+            name="Unica",
+            days_of_week="0,1,2,3,4,5,6",
+            start_time_local=time(0, 0),
+            end_time_local=time(23, 59, 59),
+            price_per_kwh=tariff_rate,
+            is_special=False,
+        )
+    )
+    db_session.commit()
+
+    session_id = client.post(
+        "/sessions/start",
+        json={"charger_id": charger_id},
+        headers={"Authorization": f"Bearer {customer_token}"},
+    ).json()["id"]
+    session = db_session.get(ChargingSession, uuid.UUID(session_id))
+    session.started_at = datetime.now(UTC) - timedelta(minutes=65)
+    db_session.commit()
+
+    # duas leituras de 6.000 kW, 60 min de intervalo -> 6.000 kWh por trapezio; nenhuma
+    # leitura zerada, entao so a parada manual fecha a sessao (sem timeout/potencia zero).
+    charger = db_session.get(Charger, uuid.UUID(charger_id))
+    db_session.add_all(
+        [
+            ChargerReading(
+                charger_id=charger.id,
+                timestamp=session.started_at + timedelta(minutes=1),
+                power_kw=Decimal("6.000"),
+                status=ChargerStatus.carregando,
+            ),
+            ChargerReading(
+                charger_id=charger.id,
+                timestamp=session.started_at + timedelta(minutes=61),
+                power_kw=Decimal("6.000"),
+                status=ChargerStatus.carregando,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = client.post(
+        "/sessions/current/stop", headers={"Authorization": f"Bearer {customer_token}"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "finished"
+    assert Decimal(body["energy_kwh"]) == Decimal("6.000")
+
+    db_session.refresh(session)
+    started_at = session.started_at.replace(tzinfo=UTC)
+    ended_at = session.ended_at.replace(tzinfo=UTC)
+    duration_minutes = Decimal((ended_at - started_at).total_seconds()) / Decimal("60")
+    expected = calculate_session_amount(
+        energy_kwh=session.energy_kwh,
+        tariff_rate_per_kwh=tariff_rate,
+        session_duration_minutes=duration_minutes,
+        free_minutes=0,
+        plan_discount_pct=Decimal("0"),
+        franquia_kwh_available=Decimal("0"),
+    )
+    assert session.amount_due == expected.final_amount
+    assert Decimal(body["amount_due"]) == expected.final_amount
+
+    charger_after = db_session.get(Charger, charger.id)
+    assert charger_after.status == ChargerStatus.livre
+
+
+def test_stop_current_session_404_sem_sessao_ativa(client):
+    customer_token = _register_and_login(
+        client, "cliente-stop-sem-sessao@teste.com", "customer"
+    )
+    response = client.post(
+        "/sessions/current/stop", headers={"Authorization": f"Bearer {customer_token}"}
+    )
+    assert response.status_code == 404
+
+
+def test_stop_current_session_de_outro_usuario_devolve_404_e_nao_afeta_a_sessao(
+    client, db_session
+):
+    owner_token, charger_id = _setup_livre_charger(client, db_session)
+    customer_token = _register_and_login(client, "cliente-dono-sessao@teste.com", "customer")
+    _set_customer_rfid(client, customer_token)
+
+    establishment_id = client.get(
+        "/establishments/me", headers={"Authorization": f"Bearer {owner_token}"}
+    ).json()[0]["id"]
+    db_session.add(
+        TariffRule(
+            establishment_id=uuid.UUID(establishment_id),
+            name="Unica",
+            days_of_week="0,1,2,3,4,5,6",
+            start_time_local=time(0, 0),
+            end_time_local=time(23, 59, 59),
+            price_per_kwh=Decimal("2.0000"),
+            is_special=False,
+        )
+    )
+    db_session.commit()
+
+    session_id = client.post(
+        "/sessions/start",
+        json={"charger_id": charger_id},
+        headers={"Authorization": f"Bearer {customer_token}"},
+    ).json()["id"]
+    session = db_session.get(ChargingSession, uuid.UUID(session_id))
+    session.started_at = datetime.now(UTC) - timedelta(minutes=10)
+    db_session.commit()
+
+    charger = db_session.get(Charger, uuid.UUID(charger_id))
+    db_session.add(
+        ChargerReading(
+            charger_id=charger.id,
+            timestamp=session.started_at + timedelta(minutes=1),
+            power_kw=Decimal("6.000"),
+            status=ChargerStatus.carregando,
+        )
+    )
+    db_session.commit()
+    # forca a sessao a virar "active" via o poll normal do dono da sessao.
+    client.get("/sessions/current", headers={"Authorization": f"Bearer {customer_token}"})
+
+    outro_token = _register_and_login(client, "estranho-stop@teste.com", "customer")
+    response = client.post(
+        "/sessions/current/stop", headers={"Authorization": f"Bearer {outro_token}"}
+    )
+    assert response.status_code == 404
+
+    db_session.refresh(session)
+    assert session.status == ChargingSessionStatus.active
 
 
 def test_start_session_falha_sem_rfid(client, db_session):

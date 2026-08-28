@@ -24,6 +24,7 @@ from app.services.sessions import (
     estimate_live_amount,
     set_payment_method,
     start_session,
+    stop_session_manually,
     sync_session,
 )
 from app.services.vehicle_battery import estimate_battery_status
@@ -87,6 +88,35 @@ def read_current_session(
         battery_pct_estimate=battery_pct_estimate,
         estimated_minutes_remaining=estimated_minutes_remaining,
     )
+
+
+@router.post("/current/stop", response_model=ChargingSessionRead)
+def stop_current_session(
+    db: Session = Depends(get_db), current_user: User = Depends(require_customer)
+) -> ChargingSession:
+    """Parada manual (Tarefa 1) - so a sessao `active` do proprio cliente; filtrar por
+    `user_id == current_user.id` ja garante que outro usuario nunca acha a sessao alheia
+    (404, mesmo contrato dos outros endpoints de sessao). Sincroniza antes de checar o
+    status, mesmo padrao de `GET /sessions/current` - senao uma sessao ainda `pending` no
+    banco (porque ninguem chamou `/sessions/current` desde que o carregador comecou a
+    reportar potencia) nunca seria encontrada como `active`."""
+    session = (
+        db.query(ChargingSession)
+        .filter(
+            ChargingSession.user_id == current_user.id,
+            ChargingSession.status.in_(
+                [ChargingSessionStatus.pending, ChargingSessionStatus.active]
+            ),
+        )
+        .first()
+    )
+    if session is not None:
+        session = sync_session(db, session)
+    if session is None or session.status != ChargingSessionStatus.active:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Nenhuma sessao ativa"
+        )
+    return stop_session_manually(db, session)
 
 
 @router.patch("/current/payment-method", response_model=ChargingSessionRead)

@@ -225,10 +225,7 @@ def _finalize_as_error(db: Session, session: ChargingSession, ended_at: datetime
     _release_charger(db, session.charger_id)
 
 
-def _finish_session(
-    db: Session, session: ChargingSession, readings: list[ChargerReading]
-) -> None:
-    ended_at = _as_utc(readings[-1].timestamp)
+def _finish_session(db: Session, session: ChargingSession, ended_at: datetime) -> None:
     started_at = _as_utc(session.started_at)
     local_started_at = started_at.astimezone(LOCAL_TZ)
 
@@ -315,8 +312,22 @@ def sync_session(db: Session, session: ChargingSession) -> ChargingSession:
     # session.status == active neste ponto (por transicao acima ou ja vinha assim)
     session.energy_kwh = _accumulate_energy_kwh(readings)
     if _ended_by_zero_power(readings):
-        _finish_session(db, session, readings)
+        _finish_session(db, session, _as_utc(readings[-1].timestamp))
 
+    db.commit()
+    db.refresh(session)
+    return session
+
+
+def stop_session_manually(db: Session, session: ChargingSession) -> ChargingSession:
+    """Encerramento pelo cliente (Tarefa 1) - reaproveita `_finish_session`, so muda o
+    gatilho: em vez de potencia zerada ou timeout do polling, e o clique explicito do
+    cliente. Resincroniza `energy_kwh` com as leituras mais recentes antes de fechar, senao
+    a leitura mais proxima do clique ficaria de fora do calculo (mesma logica de
+    `sync_session`, so que `ended_at` e agora, nao o timestamp da ultima leitura)."""
+    readings = _readings_since(db, session.charger_id, session.started_at)
+    session.energy_kwh = _accumulate_energy_kwh(readings)
+    _finish_session(db, session, datetime.now(UTC))
     db.commit()
     db.refresh(session)
     return session
