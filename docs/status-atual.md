@@ -33,13 +33,15 @@
 - **Ocupação por vaga**: gráfico novo em Relatórios comparando receita/sessões por carregador.
 - **FAQ estático** em 3 lugares (landing pública dos dois portais, Configurações do proprietário, Ajuda do cliente).
 - **Histórico de demonstração** de 4 clientes novos no Estacionamento Central, com sessões inspiradas no padrão real de um carregador HCA G2 da FIAP.
+- **Serviço de IA validado com o histórico novo**: com ~80 dias de leitura disponíveis (30 dias do histórico de demo + a base já existente), `GET /forecast` e `GET /pricing-suggestions` voltam `status: "ok"` com previsão Prophet e sugestões reais de ajuste de tarifa — precisa do processo `ia/` rodando (`uvicorn app.main:app --port 8001`), que não sobe sozinho. Corrigido um bug real no backfill de `ChargerReading` (`seed_demo_history.py` reiniciava o odômetro `total_energy_kwh` por sessão em vez de continuar o valor real do carregador) via `backend/app/db/fix_demo_readings.py` novo.
+- **Modo demonstração no portal do cliente** (28/08/2026): botão "Simular leitura do cartão RFID" (`SessaoPage.jsx`) cria uma sessão real de verdade (`POST /sessions/start`) contra um carregador livre — não é encenação, é a mesma sessão que um RFID físico abriria. `SessionStepper` novo mostra a jornada em 4 passos (aproximar cartão → conectando → carregando → concluído) durante o uso real, não só no primeiro login. `% de bateria` e `tempo restante de carga` agora são estimados de verdade a partir da capacidade real do modelo de veículo já cadastrado (`services/vehicle_battery.py`) — fecha um item que M5 documentava como bloqueado.
 
 ## 2. O que ainda falta
 
 Ordenado por urgência para a apresentação/demo, não por número de milestone.
 
 ### M9 — Deploy e demo (nada começado, é o maior risco atual)
-- Backend + serviço de IA + Postgres não estão no Railway; frontends não estão na Vercel; sem `vercel.json`; sem CORS/variáveis de ambiente de produção; migrations e seed não rodados em produção; simulador não roda continuamente em nenhum ambiente de demo.
+- Backend + serviço de IA + Postgres não estão no Railway; frontends não estão na Vercel; sem `vercel.json`; sem CORS/variáveis de ambiente de produção; migrations e seed não rodados em produção. O worker de polling contínuo já existe e funciona (`python -m app.integracoes.polling`, verificado ao vivo em 28/08/2026), só falta rodar como processo persistente em algum ambiente de demo/produção — não é mais "não existe", é "não está implantado".
 - Roteiro de demo cronometrado, dados determinísticos e plano B em vídeo — nada feito.
 - Slides da apresentação — não feitos (o resto da documentação — README, arquitetura, modelo de dados, limitações — já está pronto).
 
@@ -55,7 +57,7 @@ Ordenado por urgência para a apresentação/demo, não por número de milestone
 
 ### M4/M5 — gaps pontuais (não estruturais)
 - Proprietário: regras especiais de tarifa com pré-visualização de custo, histórico de consumo por cliente na tela de usuários, bloquear/desbloquear inadimplente, emitir RFID pelo painel, tempo médio de espera na fila, comparativo entre meses e exportação PDF dos relatórios.
-- Cliente: login Google, cadastro de veículo/forma de pagamento no onboarding, RFID virtual, % de bateria estimado, notificação push, comparativo/contratação de planos na própria UI, link para o Google Maps, gráfico de consumo mensal, **modo empresarial inteiro** (frota/rateio/fatura consolidada — cortável).
+- Cliente: login Google, cadastro de veículo/forma de pagamento no onboarding (o campo existe e já alimenta a estimativa de bateria, só falta a tela de auto-cadastro), RFID virtual, notificação push, comparativo/contratação de planos na própria UI, link para o Google Maps, gráfico de consumo mensal, **modo empresarial inteiro** (frota/rateio/fatura consolidada — cortável).
 
 ### M6 — Onboarding/dimensionamento (gaps pontuais)
 - Payback com premissas editáveis pelo usuário, texto explicando "carga sobressalente", criação automática do estabelecimento ao concluir o orçamento.
@@ -70,10 +72,11 @@ Ordem de corte definida em `tasks/README.md` se o tempo apertar: modo empresaria
 | Contato de suporte (`SUPPORT_CONTACT`) | `lib/faq.js` nos dois portais — landing, Configurações, Ajuda | E-mail/telefone fictícios, rotulados "(em breve)". Nenhum canal real existe ainda. |
 | Ilustrações SVG (mapa, estados vazios, onboarding, ícones de app) | `frontend-cliente/src/assets/` | Desenhadas nesta sessão como placeholder funcional — não vieram de um designer. Documentado em `tasks/milestones/M10-motion-mapa-3d.md`. |
 | Histórico de sessões de 4 clientes de demonstração | `backend/app/db/seed_demo_history.py` | Números "reais e possíveis" inspirados no padrão de horário/duração/energia de um PDF de registro de carregamento real da FIAP (HCA G2, NS 57000HPA247L0002) — **não são sessões de clientes reais**, são resample com jitter. Marcado na docstring do arquivo. |
-| Leituras de potência (`ChargerReading`) backfilladas para o período das sessões de demo | mesmo arquivo acima | Perfil trapezoidal simples gerado por código, não é telemetria real do dispositivo — só alimenta o gráfico de curva de potência com histórico de semanas. |
+| Leituras de potência (`ChargerReading`) backfilladas para o período das sessões de demo | mesmo arquivo acima + `fix_demo_readings.py` | Perfil trapezoidal simples gerado por código, não é telemetria real do dispositivo — só alimenta o gráfico de curva de potência e o forecast da IA com histórico de semanas. Reancorado por sessão no odômetro real (`_baseline_before`) porque o polling ao vivo deste ambiente de dev continua rodando em paralelo o mês inteiro; um resíduo pequeno de "quedas" no acumulador continua existindo (herdado do dataset histórico pré-existente e de reinícios reais do servidor) — a própria detecção de anomalias (`energy_regression`) já pega isso por design, não é um bug a mais. |
 | Pinos individuais por carregador no mini-mapa de detalhe do estabelecimento | `frontend-cliente/src/pages/MapaDetalhePage.jsx` | `Charger` não tem coordenada própria no banco (só `Establishment`); os pinos usam um offset visual (~50m em círculo) ao redor do ponto real — nunca GPS preciso. Documentado em `M10-motion-mapa-3d.md`. |
 | Pagamento (`payment_method` na sessão) | `services/sessions.py`, `SessaoPage.jsx` | Declarativo por decisão de escopo do desafio GoodWe — registra a escolha, nunca processa cobrança de verdade (sem gateway, sem PCI). Não é um "falta terminar", é definitivo para este projeto. |
 | Suporte por estabelecimento (`support_phone`/`support_email` do dono) | ideia registrada, não implementada | Diferente do `SUPPORT_CONTACT` acima (que é da plataforma) — esse seria por estabelecimento, ainda não tem campo no banco. |
+| Capacidade de bateria por modelo de veículo | `backend/app/services/vehicle_battery.py` | Valores aproximados de especificação pública do fabricante (podem variar por versão/ano/mercado) — usados só pra estimar %/tempo restante, nunca apresentados como o dado exato do carro do cliente. Estimativa também assume que a sessão começou com o veículo vazio (0%), única forma de estimar sem telemetria real da bateria. |
 
 ## Como regenerar o ambiente de demo do zero
 
@@ -81,4 +84,19 @@ Ordem de corte definida em `tasks/README.md` se o tempo apertar: modo empresaria
 cd backend && alembic upgrade head
 python -m app.db.seed              # estabelecimento, carregadores, planos, 1 owner, 1 customer
 python -m app.db.seed_demo_history # 4 clientes de demo com historico "real e possivel" (provisorio)
+```
+
+Pra sugestão de precificação dinâmica e detecção de anomalias funcionarem (em vez de "IA
+indisponível"), o serviço `ia/` precisa estar rodando à parte — nenhum dos comandos acima
+sobe ele:
+
+```bash
+cd ia && uvicorn app.main:app --port 8001
+```
+
+Pro botão "Simular leitura do cartão RFID" (`SessaoPage.jsx`) progredir de verdade
+(`pending` → `active`), o worker de polling também precisa estar rodando à parte:
+
+```bash
+cd backend && python -m app.integracoes.polling
 ```

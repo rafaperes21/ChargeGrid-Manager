@@ -35,9 +35,16 @@ class ChargingSessionRead(BaseModel):
 
 class CurrentSessionRead(ChargingSessionRead):
     """So usado por `GET /sessions/current` - `estimated_amount_due` e uma projecao ao vivo
-    (tarifa+plano resolvidos como se a sessao fechasse agora), nunca o valor final."""
+    (tarifa+plano resolvidos como se a sessao fechasse agora), nunca o valor final.
+
+    `battery_pct_estimate`/`estimated_minutes_remaining`: estimativa a partir da capacidade
+    real (aproximada) do modelo do veiculo cadastrado - `None` quando o modelo nao esta no
+    catalogo (`services/vehicle_battery.py`) ou a sessao nao esta `active`, nunca um valor
+    generico inventado."""
 
     estimated_amount_due: Decimal | None
+    battery_pct_estimate: Decimal | None = None
+    estimated_minutes_remaining: int | None = None
 
 
 class ReceiptRead(BaseModel):

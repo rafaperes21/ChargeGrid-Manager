@@ -205,15 +205,27 @@ def _create_finished_session(
 
 
 def _create_readings_for_session(
-    db, charger: Charger, start_utc: datetime, end_utc: datetime, energy_kwh: Decimal
-) -> None:
+    db,
+    charger: Charger,
+    start_utc: datetime,
+    end_utc: datetime,
+    energy_kwh: Decimal,
+    running_total_start: Decimal,
+) -> Decimal:
     """Leituras a cada 10 min cobrindo a janela da sessao - so pra alimentar o grafico de
     curva de potencia da tela de detalhe do carregador com historico alem do que o polling
     ao vivo acumulou. Perfil trapezoidal simples (rampa 8% no inicio/fim), nao e telemetria
-    real de dispositivo."""
+    real de dispositivo.
+
+    `total_energy_kwh` e um odometro que so sobe (skill integracao-sems-simulador) - por
+    isso recebe `running_total_start` (o valor real acumulado do carregador ate aqui,
+    resolvido por quem chama em `_backfill_readings`) e devolve o valor final, pra a
+    proxima sessao deste mesmo carregador continuar dai. Reiniciar em 0 a cada sessao (bug
+    da primeira versao deste script) quebra qualquer leitura por diferenca - e exatamente
+    o que `ia/app/services/forecast.load_hourly_kwh_series` faz."""
     total_seconds = (end_utc - start_utc).total_seconds()
     if total_seconds <= 0:
-        return
+        return running_total_start
     duration_hours = Decimal(total_seconds) / Decimal("3600")
     avg_power_kw = min(charger.nominal_power_kw, energy_kwh / duration_hours)
 
@@ -233,7 +245,7 @@ def _create_readings_for_session(
     }
 
     step = timedelta(minutes=READING_STEP_MINUTES)
-    cumulative_energy = Decimal("0.000")
+    cumulative_energy = running_total_start
     timestamp = start_utc
     while timestamp <= end_utc:
         fraction = (timestamp - start_utc).total_seconds() / total_seconds
@@ -258,6 +270,44 @@ def _create_readings_for_session(
                 )
             )
         timestamp += step
+
+    return cumulative_energy
+
+
+def _baseline_before(db, charger_id, moment: datetime) -> Decimal:
+    reading = (
+        db.query(ChargerReading.total_energy_kwh)
+        .filter(ChargerReading.charger_id == charger_id, ChargerReading.timestamp < moment)
+        .order_by(ChargerReading.timestamp.desc())
+        .first()
+    )
+    return reading[0] if reading is not None else Decimal("0.000")
+
+
+def _backfill_readings(
+    db, session_windows: list[tuple[Charger, datetime, datetime, Decimal]]
+) -> None:
+    """Segunda passada, depois que todas as sessoes de todas as personas ja existem: agrupa
+    por carregador e gera as leituras em ordem cronologica de verdade.
+
+    Reancora em cada sessao (nao um unico total carregado do inicio ao fim) porque o
+    polling ao vivo deste ambiente de dev continua rodando em paralelo o mes inteiro - o
+    odometro real sobe sozinho nos intervalos *entre* sessoes de demo. Um unico acumulador
+    "global" por carregador, carregado so uma vez, diverge do real nesses intervalos e cria
+    quedas (a mesma coisa que o simulador marca como anomalia de reset - skill
+    `integracao-sems-simulador`: o campo e monotonico por definicao)."""
+    by_charger: dict = {}
+    for charger, start_utc, end_utc, energy_kwh in session_windows:
+        by_charger.setdefault(charger.id, (charger, []))[1].append((start_utc, end_utc, energy_kwh))
+
+    for charger, windows in by_charger.values():
+        windows.sort(key=lambda window: window[0])
+        for start_utc, end_utc, energy_kwh in windows:
+            running_total_start = _baseline_before(db, charger.id, start_utc)
+            _create_readings_for_session(
+                db, charger, start_utc, end_utc, energy_kwh, running_total_start
+            )
+            db.flush()
 
 
 def run() -> None:
@@ -292,6 +342,7 @@ def run() -> None:
         today_local = datetime.now(tz=UTC).astimezone(LOCAL_TZ).date()
         busy_until: dict = {}
         created_personas = 0
+        session_windows: list[tuple[Charger, datetime, datetime, Decimal]] = []
 
         for persona_index, persona in enumerate(PERSONAS):
             existing_user = db.query(User).filter(User.email == persona["email"]).first()
@@ -335,13 +386,17 @@ def run() -> None:
                 _create_finished_session(
                     db, user, charger, establishment.id, start_utc, end_utc, energy_kwh
                 )
-                _create_readings_for_session(db, charger, start_utc, end_utc, energy_kwh)
+                session_windows.append((charger, start_utc, end_utc, energy_kwh))
 
             db.commit()
             created_personas += 1
             print(
                 f"Criado: {persona['name']} ({persona['email']}) - {persona['sessions']} sessoes."
             )
+
+        if session_windows:
+            _backfill_readings(db, session_windows)
+            db.commit()
 
         print(
             f"Historico de demo aplicado: {created_personas} cliente(s) novo(s) no "
