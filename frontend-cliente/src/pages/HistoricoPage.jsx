@@ -1,17 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import emptyHistoricoIllustration from '../assets/empty-historico.svg'
+import { ReceiptBreakdown } from '../components/ReceiptBreakdown'
 import { Skeleton } from '../components/ui/Skeleton'
 import { apiClient } from '../lib/apiClient'
 import { formatCurrency, formatDateTime, formatEnergyKwh } from '../lib/format'
 import { gsap, prefersReducedMotion, TRANSITION, useGSAP } from '../lib/motion'
-
-const BREAKDOWN_ROWS = [
-  ['gross_amount', 'Bruto'],
-  ['promo_value', 'Promoção (minutos grátis)', true],
-  ['discount_value', 'Desconto do plano', true],
-  ['franquia_value', 'Franquia', true],
-]
 
 function Receipt({ sessionId }) {
   const { data: receipt, isLoading } = useQuery({
@@ -23,21 +17,8 @@ function Receipt({ sessionId }) {
   if (!receipt) return null
 
   return (
-    <div className="flex flex-col gap-1.5 border-t border-hairline px-4 py-3">
-      {BREAKDOWN_ROWS.map(([key, label, isSubtracted]) => {
-        const value = Number(receipt[key])
-        if (value === 0) return null
-        return (
-          <div key={key} className="flex items-center justify-between text-xs text-muted-2">
-            <span>{label}</span>
-            <span>{isSubtracted ? '− ' : ''}{formatCurrency(value)}</span>
-          </div>
-        )
-      })}
-      <div className="mt-1 flex items-center justify-between border-t border-hairline pt-1.5 text-sm font-bold text-ink">
-        <span>Total cobrado</span>
-        <span>{formatCurrency(receipt.final_amount)}</span>
-      </div>
+    <div className="border-t border-hairline px-4 py-3">
+      <ReceiptBreakdown receipt={receipt} />
     </div>
   )
 }

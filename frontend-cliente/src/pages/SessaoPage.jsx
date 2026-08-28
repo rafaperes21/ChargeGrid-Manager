@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Skeleton } from '../components/ui/Skeleton'
 import { ApiError, apiClient } from '../lib/apiClient'
 import { formatCurrency, formatEnergyKwh } from '../lib/format'
 import { animateNumber, gsap, MICRO, prefersReducedMotion, TRANSITION, useGSAP } from '../lib/motion'
+import { PAYMENT_METHOD_LABELS } from '../lib/paymentMethods'
 import emptySessaoIllustration from '../assets/empty-sessao.svg'
 
 const STATUS_LABEL = {
@@ -55,13 +57,6 @@ function formatMinutesRemaining(minutes) {
   const hours = Math.floor(minutes / 60)
   const rest = minutes % 60
   return rest === 0 ? `~${hours}h` : `~${hours}h${String(rest).padStart(2, '0')}`
-}
-
-const PAYMENT_METHOD_LABELS = {
-  pix: 'Pix',
-  cartao_credito: 'Crédito',
-  cartao_debito: 'Débito',
-  carteira_do_app: 'Carteira do app',
 }
 
 // Declarativo (M3, Tarefa 4.3): so registra a escolha do cliente, nunca processa pagamento
@@ -300,6 +295,7 @@ function SessionClosedConfirmation({ receipt, onDismiss }) {
 
 export function SessaoPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const { data: session, error, isLoading } = useQuery({
     queryKey: ['current-session'],
     queryFn: () => apiClient.get('/sessions/current'),
@@ -314,6 +310,24 @@ export function SessaoPage() {
   const lastSessionIdRef = useRef(sessionStorage.getItem(LAST_ACTIVE_KEY))
   const [closedReceipt, setClosedReceipt] = useState(null)
   const [dismissedSessionId, setDismissedSessionId] = useState(null)
+
+  // Parada manual (Tarefa 1): fluxo separado da deteccao automatica de fechamento acima -
+  // aqui o cliente decide na hora, entao vai direto pro resumo/pagamento em vez de esperar
+  // o proximo poll perceber que a sessao sumiu. Limpa o "ultimo id ativo" antes de navegar
+  // pra essa deteccao (baseada em 404 + id lembrado) nao tentar mostrar a mesma confirmacao
+  // de novo quando o cliente voltar pra essa aba.
+  const stopMutation = useMutation({
+    mutationFn: () => apiClient.post('/sessions/current/stop'),
+    onSuccess: (stoppedSession) => {
+      lastSessionIdRef.current = null
+      sessionStorage.removeItem(LAST_ACTIVE_KEY)
+      queryClient.invalidateQueries({ queryKey: ['current-session'] })
+      queryClient.invalidateQueries({ queryKey: ['sessions-mine'] })
+      navigate(`/pagamento/${stoppedSession.id}`, {
+        state: { establishmentId: stoppedSession.establishment_id },
+      })
+    },
+  })
 
   useEffect(() => {
     if (session?.status === 'active' || session?.status === 'pending') {
@@ -509,6 +523,24 @@ export function SessaoPage() {
           establishmentId={session.establishment_id}
           currentMethod={session.payment_method}
         />
+
+        {isActive && (
+          <div>
+            <Button
+              variant="secondary"
+              className="w-full"
+              disabled={stopMutation.isPending}
+              onClick={() => stopMutation.mutate()}
+            >
+              {stopMutation.isPending ? 'Parando…' : 'Parar carregamento'}
+            </Button>
+            {stopMutation.isError && (
+              <p className="mt-2 text-xs text-status-problema">
+                Não foi possível parar a sessão agora. Tente de novo.
+              </p>
+            )}
+          </div>
+        )}
 
         {session.status === 'pending' && (
           <div className="rounded-2xl border border-hairline bg-amber-50 px-4 py-3">

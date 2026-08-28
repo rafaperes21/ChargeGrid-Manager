@@ -27,6 +27,20 @@
 - Catálogo fixo de planos definido pela plataforma (avulso/mensal/trimestral) — proprietário só habilita níveis, nunca define valores.
 - Forma de pagamento declarativa por estabelecimento e por sessão (nunca processa cobrança de verdade).
 
+### Parada manual de sessão pelo cliente (28/08/2026)
+- Até esta rodada não havia como o cliente encerrar uma recarga na hora — a sessão só fechava
+  sozinha por potência zerada ou timeout do polling, o que travava qualquer demonstração ao
+  vivo (a sessão simulada ficava rodando indefinidamente). `POST /sessions/current/stop`
+  novo reaproveita `_finish_session` (`services/sessions.py`) — mesmo motor de cálculo do
+  fechamento automático, só muda o gatilho para o clique explícito do cliente.
+- `SessaoPage.jsx`: botão "Parar carregamento" visível durante a sessão `active`, que chama o
+  endpoint e navega para duas telas novas em sequência — `PagamentoPage.jsx` (resumo com a
+  mesma decomposição bruto→promoção→desconto→franquia→total do recibo, reaproveitada do
+  histórico via `components/ReceiptBreakdown.jsx`, e seleção declarativa da forma de
+  pagamento) e `ObrigadoPage.jsx` (agradecimento com o valor final, entrada animada via
+  `motion.js`). Nenhuma das duas processa pagamento de verdade — mesmo padrão declarativo já
+  usado no resto do sistema.
+
 ### Peça de impacto para a GoodWe (M11, PR #14 + esta rodada)
 - Painel agregado de frota multi-estabelecimento, sugestão de cross-sell solar/bateria, hero de impacto (kWh/CO₂/receita) na tela de login dos dois portais, documentação da API (tags no Swagger).
 - **Tela de detalhe/telemetria por carregador** (`/carregadores/:id`, proprietário): uptime, curva de potência animada, sessões e anomalias filtradas por carregador — pedida depois de feedback do professor sobre "visão de mercado e venda".
