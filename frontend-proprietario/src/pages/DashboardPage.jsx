@@ -8,6 +8,36 @@ import { formatCurrency, formatPowerKw, formatUpdatedAgo } from '../lib/format'
 import { animateNumber, gsap, MICRO, prefersReducedMotion, TRANSITION, useGSAP } from '../lib/motion'
 
 const POWER_ALERT_THRESHOLD = 0.9
+const POWER_WARNING_THRESHOLD = 0.7
+
+// Mesmas cores de status da skill ui-dois-portais (`--color-status-*` em index.css) - a
+// barra de potencia usa os mesmos 3 semaforos que o resto do produto ja usa pra
+// livre/reservado/problema, em vez de um gradiente fixo que nao dizia nada sobre o estado
+// real. Cor nunca e o unico sinal (skill, secao 1) - por isso vem sempre com rotulo em texto.
+function powerLevelInfo(pct) {
+  if (pct === null) {
+    return { color: 'var(--color-muted)', label: 'Sem leitura ainda', badgeClass: 'bg-hairline text-muted' }
+  }
+  if (pct >= POWER_ALERT_THRESHOLD) {
+    return {
+      color: 'var(--color-status-problema)',
+      label: 'Acima do limite',
+      badgeClass: 'bg-status-problema/10 text-status-problema',
+    }
+  }
+  if (pct >= POWER_WARNING_THRESHOLD) {
+    return {
+      color: 'var(--color-status-reservado)',
+      label: 'Perto do limite',
+      badgeClass: 'bg-status-reservado/10 text-status-reservado',
+    }
+  }
+  return {
+    color: 'var(--color-status-livre)',
+    label: 'Folga confortável',
+    badgeClass: 'bg-status-livre/10 text-status-livre',
+  }
+}
 
 function secondsSince(isoString) {
   if (!isoString) return null
@@ -43,6 +73,7 @@ export function DashboardPage() {
 }
 
 function DashboardContent({ data, powerPct, overThreshold }) {
+  const levelInfo = powerLevelInfo(powerPct)
   const fillRef = useRef(null)
   const prevPctRef = useRef(0)
   const alertRef = useRef(null)
@@ -148,17 +179,32 @@ function DashboardContent({ data, powerPct, overThreshold }) {
                 dado real do simulador
               </span>
             </div>
-            <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-hairline">
+
+            <span
+              className={`mt-2 inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${levelInfo.badgeClass}`}
+            >
+              <span aria-hidden="true">●</span>
+              {levelInfo.label}
+            </span>
+
+            <div className="relative mt-3 h-2.5 overflow-hidden rounded-full bg-hairline">
               <div
                 ref={fillRef}
-                className="h-2.5 w-full origin-left rounded-full"
+                className="h-2.5 w-full origin-left rounded-full transition-[background] duration-300"
                 style={{
                   transform: 'scaleX(0)',
-                  background: 'linear-gradient(90deg,#7C3AED,#E60012,#FF7A1A)',
+                  background: `linear-gradient(90deg, color-mix(in srgb, ${levelInfo.color} 55%, white), ${levelInfo.color})`,
                 }}
               />
+              <div
+                aria-hidden="true"
+                className="absolute inset-y-0 w-[2px] bg-ink-fixed/60"
+                style={{ left: `${POWER_ALERT_THRESHOLD * 100}%` }}
+              />
             </div>
-            <p className="mt-1.5 text-[10px] text-muted">limiar 90% marcado</p>
+            <p className="mt-1.5 text-[10px] text-muted">
+              traço marca os {Math.round(POWER_ALERT_THRESHOLD * 100)}% do limite contratado
+            </p>
           </div>
 
           <div className="flex flex-col justify-center rounded-[22px] border border-hairline bg-surface p-5 shadow-[0_4px_20px_rgba(14,10,26,0.05)]">

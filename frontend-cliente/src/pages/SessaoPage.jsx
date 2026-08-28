@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Skeleton } from '../components/ui/Skeleton'
 import { ApiError, apiClient } from '../lib/apiClient'
 import { formatCurrency, formatEnergyKwh } from '../lib/format'
 import { animateNumber, gsap, MICRO, prefersReducedMotion, TRANSITION, useGSAP } from '../lib/motion'
 import { PAYMENT_METHOD_LABELS } from '../lib/paymentMethods'
+import { startSessionErrorMessage } from '../lib/sessionErrors'
 import emptySessaoIllustration from '../assets/empty-sessao.svg'
 
 const STATUS_LABEL = {
@@ -132,7 +133,14 @@ function useSimulateRfidTap() {
   return useMutation({
     mutationFn: async () => {
       const establishments = await apiClient.get('/establishments')
-      for (const establishment of establishments) {
+      // Prioriza estabelecimentos com forma de pagamento configurada - um estabelecimento
+      // de teste sem isso (accepted_payment_methods vazio) e um estado incompleto, e cair
+      // nele deixa a tela de pagamento sem nenhuma opcao depois que a sessao fechar.
+      const ordered = [...establishments].sort(
+        (a, b) =>
+          (b.accepted_payment_methods?.length ?? 0) - (a.accepted_payment_methods?.length ?? 0)
+      )
+      for (const establishment of ordered) {
         const chargers = await apiClient.get(`/chargers?establishment_id=${establishment.id}`)
         const freeCharger = chargers.find((charger) => charger.status === 'livre')
         if (freeCharger) {
@@ -146,16 +154,10 @@ function useSimulateRfidTap() {
 }
 
 function simulateRfidErrorMessage(error) {
-  if (error instanceof ApiError && error.status === 400) {
-    return 'Sua conta ainda não tem um cartão RFID cadastrado.'
-  }
-  if (error instanceof ApiError && error.status === 409) {
-    return 'Você já tem uma sessão em andamento.'
-  }
   if (error instanceof Error && error.message === 'SEM_CARREGADOR_LIVRE') {
     return 'Nenhum carregador livre no momento pra simular — tente de novo em instantes.'
   }
-  return 'Não foi possível simular o cartão agora.'
+  return startSessionErrorMessage(error)
 }
 
 function NoActiveSession() {
@@ -192,6 +194,9 @@ function NoActiveSession() {
             {simulateRfidErrorMessage(simulateMutation.error)}
           </p>
         )}
+        <p className="mt-2 text-[11px] text-muted-3">
+          Quer escolher a vaga? <Link to="/mapa" className="font-semibold text-brand">Veja o mapa</Link>
+        </p>
       </div>
     </div>
   )

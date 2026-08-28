@@ -1,9 +1,12 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import emptyFilaIllustration from '../assets/empty-fila.svg'
+import { Button } from '../components/ui/Button'
 import { Skeleton } from '../components/ui/Skeleton'
 import { ApiError, apiClient } from '../lib/apiClient'
 import { animateNumber, gsap, MICRO, prefersReducedMotion, TRANSITION, useGSAP } from '../lib/motion'
+import { startSessionErrorMessage } from '../lib/sessionErrors'
 
 const formatPosition = (value) => String(Math.round(value))
 
@@ -38,11 +41,30 @@ function NotInQueue() {
 }
 
 export function FilaPage() {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
   const { data: entry, error, isLoading } = useQuery({
     queryKey: ['queue-mine'],
     queryFn: () => apiClient.get('/queue/mine'),
     retry: false,
     refetchInterval: 10_000,
+  })
+
+  // Sair da fila (pedido explicito do usuario, 28/08/2026) - antes nao tinha jeito
+  // nenhum de cancelar, ficava "rodando pra sempre" ate expirar por conta propria.
+  const leaveMutation = useMutation({
+    mutationFn: () => apiClient.delete('/queue/mine'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['queue-mine'] }),
+  })
+
+  // "Cheguei" (pedido explicito do usuario) - a vaga reservada ja tem `reserved_charger_id`
+  // no /queue/mine, so faltava um jeito de confirmar a chegada na hora em vez do cliente
+  // precisar ir ate o mapa achar o carregador certo sozinho. Mesmo POST /sessions/start
+  // que o mapa usa - `consume_reservation` (services/queue.py) tira da fila sozinho.
+  const arrivedMutation = useMutation({
+    mutationFn: () => apiClient.post('/sessions/start', { charger_id: entry.reserved_charger_id }),
+    onSuccess: () => navigate('/'),
   })
 
   const [, forceTick] = useState(0)
@@ -119,6 +141,31 @@ export function FilaPage() {
         <p className="text-center text-sm text-muted-2">
           Aguarde — você será notificado quando uma vaga liberar para você.
         </p>
+      )}
+
+      {isReserved && (
+        <Button
+          className="w-full"
+          disabled={arrivedMutation.isPending}
+          onClick={() => arrivedMutation.mutate()}
+        >
+          {arrivedMutation.isPending ? 'Iniciando…' : '📶 Cheguei — simular cartão RFID'}
+        </Button>
+      )}
+      {arrivedMutation.isError && (
+        <p className="text-xs text-status-problema">{startSessionErrorMessage(arrivedMutation.error)}</p>
+      )}
+
+      <Button
+        variant="secondary"
+        className="w-full"
+        disabled={leaveMutation.isPending}
+        onClick={() => leaveMutation.mutate()}
+      >
+        {leaveMutation.isPending ? 'Saindo…' : 'Cancelar e sair da fila'}
+      </Button>
+      {leaveMutation.isError && (
+        <p className="text-xs text-status-problema">Não foi possível sair da fila agora. Tente de novo.</p>
       )}
     </div>
   )

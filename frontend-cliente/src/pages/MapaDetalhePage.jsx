@@ -9,6 +9,7 @@ import { StatusBadge } from '../components/ui/StatusBadge'
 import { ApiError, apiClient } from '../lib/apiClient'
 import { formatDateTime, formatPowerKw, formatUpdatedAgo } from '../lib/format'
 import { createPinIcon, STATUS_PIN_COLOR } from '../lib/mapIcons'
+import { startSessionErrorMessage } from '../lib/sessionErrors'
 
 // O backend so guarda uma coordenada por estabelecimento (Establishment.latitude/longitude) -
 // nao existe coordenada individual por carregador (ver Charger model). Pra dar um pino por
@@ -137,6 +138,36 @@ function ReservationForm({ chargerId, onDone }) {
   )
 }
 
+// Simular o cartao num carregador especifico (Tarefa 3, escolha de vaga) - mesmo endpoint
+// real (`POST /sessions/start`) do atalho generico da tela de Sessao, so que aqui o cliente
+// ja escolheu a vaga exata em vez do backend pegar a primeira livre de qualquer
+// estabelecimento. Ao suceder, navega pra Sessao pra acompanhar a sessao abrindo.
+function SimulateRfidHereButton({ chargerId }) {
+  const navigate = useNavigate()
+  const mutation = useMutation({
+    mutationFn: () => apiClient.post('/sessions/start', { charger_id: chargerId }),
+    onSuccess: () => navigate('/'),
+  })
+
+  return (
+    <div className="mt-2">
+      <Button
+        variant="secondary"
+        className="w-full"
+        disabled={mutation.isPending}
+        onClick={() => mutation.mutate()}
+      >
+        {mutation.isPending ? 'Simulando leitura…' : '📶 Simular cartão RFID nesta vaga'}
+      </Button>
+      {mutation.isError && (
+        <p className="mt-1.5 text-[11px] text-status-problema">
+          {startSessionErrorMessage(mutation.error)}
+        </p>
+      )}
+    </div>
+  )
+}
+
 function ChargerCard({ charger, onJoinQueue, joinPending, reservingChargerId, setReservingChargerId }) {
   const secondsAgo = secondsSince(charger.latest_reading_at)
 
@@ -160,18 +191,21 @@ function ChargerCard({ charger, onJoinQueue, joinPending, reservingChargerId, se
       )}
 
       {charger.status === 'livre' && reservingChargerId !== charger.id && (
-        <div className="mt-3 flex gap-2">
-          <Button onClick={() => onJoinQueue(charger)} disabled={joinPending} className="flex-1">
-            Entrar na fila
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setReservingChargerId(charger.id)}
-            className="flex-1"
-          >
-            Reservar horário
-          </Button>
-        </div>
+        <>
+          <div className="mt-3 flex gap-2">
+            <Button onClick={() => onJoinQueue(charger)} disabled={joinPending} className="flex-1">
+              Entrar na fila
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setReservingChargerId(charger.id)}
+              className="flex-1"
+            >
+              Reservar horário
+            </Button>
+          </div>
+          <SimulateRfidHereButton chargerId={charger.id} />
+        </>
       )}
 
       {reservingChargerId === charger.id && (
@@ -237,6 +271,17 @@ export function MapaDetalhePage() {
       </div>
 
       <div className="flex flex-col gap-3 p-5">
+        <Link
+          to={`/mapa/${establishmentId}/planos`}
+          className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-brand to-brand-hover px-4 py-3.5 text-white shadow-[0_2px_14px_rgba(230,0,18,0.25)]"
+        >
+          <div>
+            <p className="text-sm font-bold">Planos e economia</p>
+            <p className="text-xs text-white/85">Até 25% de desconto na tarifa deste estabelecimento</p>
+          </div>
+          <span className="text-lg">→</span>
+        </Link>
+
         {isLoading && (
           <>
             <Skeleton className="h-[200px] w-full" />
