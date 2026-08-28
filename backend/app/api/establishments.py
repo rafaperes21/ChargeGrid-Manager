@@ -9,10 +9,12 @@ from app.models.establishment import Establishment
 from app.models.user import User
 from app.schemas.dashboard import ChargerDashboardItem
 from app.schemas.establishment import EstablishmentCreate, EstablishmentRead, EstablishmentUpdate
+from app.schemas.plan import PlanRead
 from app.schemas.reservation import ReservationOwnerRead, ReservationRead
 from app.services.dashboard import get_chargers_status
-from app.services.plan_catalog import provision_plans_for_establishment
+from app.services.plan_catalog import plan_to_read, provision_plans_for_establishment
 from app.services.reservations import get_establishment_reservations
+from app.services.subscriptions import list_enabled_plans
 
 router = APIRouter(prefix="/establishments", tags=["establishments"])
 
@@ -93,6 +95,24 @@ def get_establishment_chargers_status(
             status_code=status.HTTP_404_NOT_FOUND, detail="Estabelecimento nao encontrado"
         )
     return get_chargers_status(db, establishment_id)
+
+
+@router.get("/{establishment_id}/plans", response_model=list[PlanRead])
+def list_establishment_plans(
+    establishment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[PlanRead]:
+    """Planos habilitados deste estabelecimento, visivel a qualquer cliente autenticado -
+    mesmo raciocinio de `/chargers-status` (nao e dado financeiro sensivel, o catalogo de
+    valores ja e publico/fixo). So os habilitados - o cliente nunca ve um nivel que o
+    proprietario decidiu nao oferecer (o `/plans` do proprietario devolve todos, este nao)."""
+    establishment = db.get(Establishment, establishment_id)
+    if establishment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Estabelecimento nao encontrado"
+        )
+    return [plan_to_read(plan) for plan in list_enabled_plans(db, establishment_id)]
 
 
 @router.get("/{establishment_id}/reservations", response_model=list[ReservationOwnerRead])

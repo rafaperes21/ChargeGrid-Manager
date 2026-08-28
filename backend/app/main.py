@@ -20,6 +20,7 @@ from app.api.queue import router as queue_router
 from app.api.reports import router as reports_router
 from app.api.reservations import router as reservations_router
 from app.api.sessions import router as sessions_router
+from app.api.subscriptions import router as subscriptions_router
 from app.api.tariffs import router as tariffs_router
 from app.api.users import router as users_router
 from app.core.config import settings
@@ -47,6 +48,13 @@ TAGS_METADATA = [
         "description": (
             "Catálogo fixo de planos da plataforma - o proprietário só liga/desliga níveis, "
             "nunca define preço, desconto ou franquia."
+        ),
+    },
+    {
+        "name": "subscriptions",
+        "description": (
+            "Assinatura do cliente a um plano habilitado pelo estabelecimento - mesmo "
+            "catálogo fixo de `plans`, o cliente só escolhe entre os níveis oferecidos."
         ),
     },
     {"name": "users", "description": "Usuários (clientes e proprietários) e bloqueio de acesso."},
@@ -162,3 +170,4 @@ app.include_router(reports_router)
 app.include_router(pricing_suggestions_router)
 app.include_router(reservations_router)
 app.include_router(fleet_router)
+app.include_router(subscriptions_router)

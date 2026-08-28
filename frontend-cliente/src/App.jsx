@@ -11,6 +11,7 @@ import { MapaPage } from './pages/MapaPage'
 import { ObrigadoPage } from './pages/ObrigadoPage'
 import { PagamentoPage } from './pages/PagamentoPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
+import { PlanosPage } from './pages/PlanosPage'
 import { SessaoPage } from './pages/SessaoPage'
 import { routes } from './routes'
 
@@ -63,6 +64,7 @@ function App() {
                 )
               })}
               <Route path="/mapa/:establishmentId" element={<MapaDetalhePage />} />
+              <Route path="/mapa/:establishmentId/planos" element={<PlanosPage />} />
               <Route path="/pagamento/:sessionId" element={<PagamentoPage />} />
               <Route path="/obrigado/:sessionId" element={<ObrigadoPage />} />
             </Route>
