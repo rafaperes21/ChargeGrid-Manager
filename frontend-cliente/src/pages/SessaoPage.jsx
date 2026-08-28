@@ -12,6 +12,51 @@ const STATUS_LABEL = {
   active: 'Carregando',
 }
 
+// Passo a passo amigavel da jornada (pedido explicito do usuario, 28/08/2026) - as mesmas
+// 4 telas que ja existiam (sem sessao / pending / active / recibo), so com um indicador
+// visual de onde o cliente esta, igual ao carrossel de onboarding.
+const JOURNEY_STEPS = ['Aproximar cartão', 'Conectando', 'Carregando', 'Concluído']
+
+function SessionStepper({ currentStep }) {
+  return (
+    <div className="px-5 pt-4">
+      <div className="flex items-center gap-1.5">
+        {JOURNEY_STEPS.map((label, index) => {
+          const stepNumber = index + 1
+          const isDone = stepNumber < currentStep
+          const isCurrent = stepNumber === currentStep
+          return (
+            <div key={label} className="flex flex-1 items-center gap-1.5 last:flex-none">
+              <div
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition-colors duration-300 ${
+                  isDone || isCurrent ? 'bg-brand text-white' : 'bg-hairline text-muted-2'
+                }`}
+              >
+                {isDone ? '✓' : stepNumber}
+              </div>
+              {index < JOURNEY_STEPS.length - 1 && (
+                <div
+                  className={`h-[2px] flex-1 rounded transition-colors duration-300 ${
+                    isDone ? 'bg-brand' : 'bg-hairline'
+                  }`}
+                />
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <p className="mt-1.5 text-[11px] font-semibold text-muted-2">{JOURNEY_STEPS[currentStep - 1]}</p>
+    </div>
+  )
+}
+
+function formatMinutesRemaining(minutes) {
+  if (minutes < 60) return `~${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest === 0 ? `~${hours}h` : `~${hours}h${String(rest).padStart(2, '0')}`
+}
+
 const PAYMENT_METHOD_LABELS = {
   pix: 'Pix',
   cartao_credito: 'Crédito',
@@ -81,8 +126,46 @@ function formatElapsed(startedAtIso) {
   return `${minutes}min ${String(seconds).padStart(2, '0')}s`
 }
 
+// Modo demonstracao (pedido explicito do usuario, 28/08/2026): simula a aproximacao do
+// cartao RFID chamando o backend de verdade (POST /sessions/start num carregador livre
+// real) - nao e uma encenacao no front, e a mesma sessao real que um RFID fisico abriria.
+// So evolui de "pending" pra "active" se o worker de polling (`python -m
+// app.integracoes.polling`) estiver rodando de verdade, gerando leituras pro simulador M2.
+function useSimulateRfidTap() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async () => {
+      const establishments = await apiClient.get('/establishments')
+      for (const establishment of establishments) {
+        const chargers = await apiClient.get(`/chargers?establishment_id=${establishment.id}`)
+        const freeCharger = chargers.find((charger) => charger.status === 'livre')
+        if (freeCharger) {
+          return apiClient.post('/sessions/start', { charger_id: freeCharger.id })
+        }
+      }
+      throw new Error('SEM_CARREGADOR_LIVRE')
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['current-session'] }),
+  })
+}
+
+function simulateRfidErrorMessage(error) {
+  if (error instanceof ApiError && error.status === 400) {
+    return 'Sua conta ainda não tem um cartão RFID cadastrado.'
+  }
+  if (error instanceof ApiError && error.status === 409) {
+    return 'Você já tem uma sessão em andamento.'
+  }
+  if (error instanceof Error && error.message === 'SEM_CARREGADOR_LIVRE') {
+    return 'Nenhum carregador livre no momento pra simular — tente de novo em instantes.'
+  }
+  return 'Não foi possível simular o cartão agora.'
+}
+
 function NoActiveSession() {
   const containerRef = useRef(null)
+  const simulateMutation = useSimulateRfidTap()
 
   useGSAP(() => {
     if (!containerRef.current || prefersReducedMotion()) return
@@ -97,6 +180,23 @@ function NoActiveSession() {
         <p className="text-xs text-emerald-800">
           Aproxime seu cartão RFID de um carregador livre para iniciar uma sessão.
         </p>
+      </div>
+
+      <div className="mt-2 w-full border-t border-dashed border-hairline pt-4">
+        <p className="text-[11px] text-muted-3">Sem cartão físico à mão agora?</p>
+        <Button
+          variant="secondary"
+          className="mt-2 w-full"
+          disabled={simulateMutation.isPending}
+          onClick={() => simulateMutation.mutate()}
+        >
+          {simulateMutation.isPending ? 'Simulando leitura…' : '📶 Simular leitura do cartão RFID'}
+        </Button>
+        {simulateMutation.isError && (
+          <p className="mt-2 text-xs text-status-problema">
+            {simulateRfidErrorMessage(simulateMutation.error)}
+          </p>
+        )}
       </div>
     </div>
   )
@@ -287,18 +387,23 @@ export function SessaoPage() {
     )
   }, [tick])
 
+  const currentStep = closedReceipt ? 4 : isActive ? 3 : session?.status === 'pending' ? 2 : 1
+
   if (closedReceipt) {
     return (
-      <SessionClosedConfirmation
-        receipt={closedReceipt}
-        onDismiss={() => {
-          setDismissedSessionId(closedReceipt.session_id)
-          setClosedReceipt(null)
-          lastSessionIdRef.current = null
-          sessionStorage.removeItem(LAST_ACTIVE_KEY)
-          queryClient.invalidateQueries({ queryKey: ['sessions-mine'] })
-        }}
-      />
+      <div className="flex flex-1 flex-col">
+        <SessionStepper currentStep={currentStep} />
+        <SessionClosedConfirmation
+          receipt={closedReceipt}
+          onDismiss={() => {
+            setDismissedSessionId(closedReceipt.session_id)
+            setClosedReceipt(null)
+            lastSessionIdRef.current = null
+            sessionStorage.removeItem(LAST_ACTIVE_KEY)
+            queryClient.invalidateQueries({ queryKey: ['sessions-mine'] })
+          }}
+        />
+      </div>
     )
   }
 
@@ -319,60 +424,100 @@ export function SessaoPage() {
   }
 
   if (error instanceof ApiError && error.status === 404) {
-    return <NoActiveSession />
+    return (
+      <div className="flex flex-1 flex-col">
+        <SessionStepper currentStep={currentStep} />
+        <NoActiveSession />
+      </div>
+    )
   }
 
   if (!session) {
-    return <NoActiveSession />
+    return (
+      <div className="flex flex-1 flex-col">
+        <SessionStepper currentStep={currentStep} />
+        <NoActiveSession />
+      </div>
+    )
   }
 
+  const hasBatteryEstimate =
+    isActive && session.battery_pct_estimate !== null && session.battery_pct_estimate !== undefined
+
   return (
-    <div className="flex flex-1 flex-col gap-5 p-5">
-      <div className="flex items-center justify-between">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-status-carregando/10 px-3 py-1.5 text-xs font-medium text-status-carregando">
-          <span className="cgm-pulse inline-block h-1.5 w-1.5 rounded-full bg-status-carregando" />
-          {STATUS_LABEL[session.status] ?? session.status}
-        </span>
-        <span ref={elapsedRef} className="inline-block font-mono text-xs text-muted-2">
-          {formatElapsed(session.started_at)}
-        </span>
-      </div>
-
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-2">
-          Valor acumulado {isActive && '(estimado)'}
-        </p>
-        {isActive && hasTariff ? (
-          <p ref={valueRef} className="mt-1 font-heading text-5xl font-bold leading-none text-ink" />
-        ) : (
-          <p className="mt-1 font-heading text-5xl font-bold leading-none text-ink">R$ —</p>
-        )}
-        {isActive && !hasTariff && (
-          <p className="mt-1 text-xs text-status-problema">
-            Sem tarifa configurada para este horário — valor final pode ficar indisponível.
-          </p>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between rounded-2xl border border-hairline px-4 py-3">
-        <span className="text-xs text-muted-2">Energia carregada</span>
-        <span className="text-sm font-semibold text-ink">
-          {session.energy_kwh !== null ? formatEnergyKwh(session.energy_kwh) : '—'}
-        </span>
-      </div>
-
-      <PaymentMethodPicker
-        establishmentId={session.establishment_id}
-        currentMethod={session.payment_method}
-      />
-
-      {session.status === 'pending' && (
-        <div className="rounded-2xl border border-hairline bg-amber-50 px-4 py-3">
-          <p className="text-xs text-amber-800">
-            Cartão reconhecido — aguardando o carregador começar a fornecer energia.
-          </p>
+    <div className="flex flex-1 flex-col">
+      <SessionStepper currentStep={currentStep} />
+      <div className="flex flex-1 flex-col gap-5 p-5">
+        <div className="flex items-center justify-between">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-status-carregando/10 px-3 py-1.5 text-xs font-medium text-status-carregando">
+            <span className="cgm-pulse inline-block h-1.5 w-1.5 rounded-full bg-status-carregando" />
+            {STATUS_LABEL[session.status] ?? session.status}
+          </span>
+          <span ref={elapsedRef} className="inline-block font-mono text-xs text-muted-2">
+            {formatElapsed(session.started_at)}
+          </span>
         </div>
-      )}
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-2">
+            Valor acumulado {isActive && '(estimado)'}
+          </p>
+          {isActive && hasTariff ? (
+            <p ref={valueRef} className="mt-1 font-heading text-5xl font-bold leading-none text-ink" />
+          ) : (
+            <p className="mt-1 font-heading text-5xl font-bold leading-none text-ink">R$ —</p>
+          )}
+          {isActive && !hasTariff && (
+            <p className="mt-1 text-xs text-status-problema">
+              Sem tarifa configurada para este horário — valor final pode ficar indisponível.
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between rounded-2xl border border-hairline px-4 py-3">
+          <span className="text-xs text-muted-2">Energia carregada</span>
+          <span className="text-sm font-semibold text-ink">
+            {session.energy_kwh !== null ? formatEnergyKwh(session.energy_kwh) : '—'}
+          </span>
+        </div>
+
+        {hasBatteryEstimate && (
+          <div className="rounded-2xl border border-hairline px-4 py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-2">Bateria (estimada)</span>
+              <span className="text-sm font-semibold text-ink">
+                {Number(session.battery_pct_estimate).toFixed(1)}%
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-hairline">
+              <div
+                className="h-1.5 rounded-full bg-status-livre transition-[width] duration-500"
+                style={{ width: `${Math.min(100, Number(session.battery_pct_estimate))}%` }}
+              />
+            </div>
+            {session.estimated_minutes_remaining !== null &&
+              session.estimated_minutes_remaining !== undefined && (
+                <p className="mt-2 text-[11px] text-muted-2">
+                  Faltam {formatMinutesRemaining(session.estimated_minutes_remaining)} para completar a
+                  carga (estimativa a partir do modelo do seu veículo)
+                </p>
+              )}
+          </div>
+        )}
+
+        <PaymentMethodPicker
+          establishmentId={session.establishment_id}
+          currentMethod={session.payment_method}
+        />
+
+        {session.status === 'pending' && (
+          <div className="rounded-2xl border border-hairline bg-amber-50 px-4 py-3">
+            <p className="text-xs text-amber-800">
+              Cartão reconhecido — aguardando o carregador começar a fornecer energia.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -18,6 +18,7 @@ from app.schemas.session import (
     SessionPaymentMethodUpdate,
     SessionStartRequest,
 )
+from app.services.dashboard import latest_reading
 from app.services.sessions import (
     build_receipt,
     estimate_live_amount,
@@ -25,6 +26,7 @@ from app.services.sessions import (
     start_session,
     sync_session,
 )
+from app.services.vehicle_battery import estimate_battery_status
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -68,12 +70,22 @@ def read_current_session(
         )
 
     estimated_amount_due = None
+    battery_pct_estimate = None
+    estimated_minutes_remaining = None
     if session.status == ChargingSessionStatus.active:
         estimated_amount_due = estimate_live_amount(db, session, datetime.now(tz=UTC))
+        reading = latest_reading(db, session.charger_id)
+        battery_pct_estimate, estimated_minutes_remaining = estimate_battery_status(
+            vehicle_model=current_user.vehicle_model,
+            energy_kwh=session.energy_kwh,
+            current_power_kw=reading.power_kw if reading else None,
+        )
 
     return CurrentSessionRead(
         **ChargingSessionRead.model_validate(session).model_dump(),
         estimated_amount_due=estimated_amount_due,
+        battery_pct_estimate=battery_pct_estimate,
+        estimated_minutes_remaining=estimated_minutes_remaining,
     )
 
 

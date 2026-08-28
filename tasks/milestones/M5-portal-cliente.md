@@ -14,7 +14,10 @@ Mobile-first. Usado em pé, no estacionamento, com pressa. Uma informação prin
 ### Cadastro e autenticação
 - [ ] Login por e-mail/senha e Google — só e-mail/senha implementado, sem Google no
       `frontend-cliente` (o Google OAuth existe no backend e no portal do proprietário)
-- [ ] Cadastro do modelo do veículo (alimenta estimativa de % de bateria e tempo restante)
+- [ ] Cadastro do modelo do veículo pelo próprio cliente — ainda não existe UI de
+      onboarding/cadastro pra isso; hoje só é populado via seed de demo. O campo
+      `User.vehicle_model` já existe e já alimenta a estimativa de bateria (ver abaixo), só
+      falta a tela de auto-cadastro pra um cliente real
 - [ ] Cadastro de método de pagamento
 - [ ] Geração do RFID virtual (QR code / número de cartão) para o proprietário cadastrar
       fisicamente no HCA G2 via SEMS+
@@ -26,12 +29,20 @@ Mobile-first. Usado em pé, no estacionamento, com pressa. Uma informação prin
       `estimated_amount_due` (novo campo, `services/sessions.estimate_live_amount`) — mesma
       tarifa/plano/franquia que valeriam se a sessão fechasse agora, rotulado "(estimado)" na
       tela, nunca extrapolado no frontend
-- [ ] % estimado da bateria, tempo estimado restante — sem cadastro de modelo de veículo (item
-      abaixo) não há base pra estimar, então não implementado ainda
+- [x] **% estimado da bateria, tempo estimado restante** (28/08/2026) — resolvido reaproveitando
+      `User.vehicle_model` (já existia) com uma tabela real de capacidade (kWh) dos modelos
+      já cadastrados na demo (`services/vehicle_battery.py`: BYD Dolphin/Dolphin Mini, GWM
+      Ora 03, Volvo EX30, Renault Kwid E-Tech — especificação pública do fabricante, não
+      inventada). `GET /sessions/current` devolve `battery_pct_estimate`/
+      `estimated_minutes_remaining`, sempre assumindo que a sessão começou com o veículo
+      vazio (0%) — única forma de estimar sem telemetria real da bateria do carro, por isso
+      a tela rotula como "estimado". Verificado ao vivo: BYD Dolphin Mini (30,008 kWh),
+      0,090 kWh entregues, 3,5 kW atual → 0,3% e "~8h33 restantes", conferido na mão.
 - [ ] Hierarquia visual: valor e tempo restante grandes; kWh e tarifa secundários — layout
-      atual é simples (status + tempo decorrido + valor + kWh), não redesenhado ainda
-- [ ] Sem modelo de veículo cadastrado → mostra kWh e **omite** o % de bateria — N/A por ora
-      (bateria ainda não é estimada, ver acima)
+      atual é simples (status + tempo decorrido + valor + kWh + bateria), não redesenhado ainda
+- [x] Sem modelo de veículo cadastrado → mostra kWh e **omite** o % de bateria —
+      `estimate_battery_status` devolve `(None, None)` pra modelo fora do catálogo, a tela
+      só renderiza o bloco de bateria quando `battery_pct_estimate` existe
 - [ ] Barra de progresso interpolada localmente; kWh e R$ só com dado confirmado
 - [ ] Notificação push ao terminar
 
@@ -111,3 +122,29 @@ Mobile-first do início — não adaptar depois de construir pensando em desktop
 - Não estime % de bateria sem o modelo do veículo. Estimativa errada de "quanto falta" é a
   reclamação nº 1 de app de recarga.
 - Extrapolar valor em R$ entre fetches faz o cliente ver um número e ser cobrado outro.
+
+## Extra — Modo demonstração e passo a passo amigável (28/08/2026)
+
+Pedido explícito do usuário: simular um cliente usando o produto de verdade (RFID → sessão →
+carregando → tempo/preço) pra gravar demo, e deixar a jornada mais fácil de entender.
+
+- **"Simular leitura do cartão RFID"** (`SessaoPage.jsx`, botão em `NoActiveSession`) — chama
+  `POST /sessions/start` de verdade contra um carregador livre real, achado percorrendo
+  `GET /establishments`/`GET /chargers`. **Não é encenação**: é a mesma sessão real que um
+  RFID físico abriria, decisão consciente pra não inventar dado (alternativa descartada:
+  animação puramente client-side com números fabricados).
+  **Depende do worker de polling estar rodando de verdade** (`python -m
+  app.integracoes.polling`, não sobe sozinho em nenhum script — mesmo gap que o
+  `docs/status-atual.md` já documentava em M9, "simulador não roda continuamente") — sem
+  isso a sessão fica presa em `pending` pra sempre, sem leitura de potência chegando.
+  Testado ao vivo com `POLL_INTERVAL_SECONDS=10` (mais rápido que o default de 60s, só pra
+  gravação): sessão real criada, `pending` → `active` em ~1 leitura, energia/valor/bateria/
+  tempo restante todos avançando sozinhos com dado do backend.
+- **`SessionStepper`** — indicador visual de 4 passos (Aproximar cartão → Conectando →
+  Carregando → Concluído) no topo de toda a jornada de `SessaoPage.jsx` (sem sessão, pending,
+  active, recibo final), mesmo espírito do carrossel de onboarding (Prioridade Imediata) mas
+  persistente durante o uso real, não só no primeiro login.
+- Confirmado que **"Dono do Estabelecimento" nunca aparece pro cliente por bug** — o header
+  do `AppShell.jsx` mostra `user.full_name` de quem está de fato logado; só apareceria assim
+  se alguém logasse com credencial de proprietário no site do cliente por engano (foi o que
+  aconteceu numa sessão de teste anterior, não é um problema de código).

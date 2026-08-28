@@ -228,6 +228,124 @@ def test_read_current_session_ativa_traz_valor_estimado(client, db_session):
     assert Decimal(body["estimated_amount_due"]) == Decimal("12.0000")
 
 
+def test_read_current_session_ativa_traz_estimativa_de_bateria(client, db_session):
+    owner_token, charger_id = _setup_livre_charger(client, db_session)
+    customer_token = _register_and_login(client, "cliente-bateria@teste.com", "customer")
+    _set_customer_rfid(client, customer_token)
+    client.patch(
+        "/users/me",
+        json={"vehicle_model": "Volvo EX30"},
+        headers={"Authorization": f"Bearer {customer_token}"},
+    )
+
+    establishment_id = client.get(
+        "/establishments/me", headers={"Authorization": f"Bearer {owner_token}"}
+    ).json()[0]["id"]
+    db_session.add(
+        TariffRule(
+            establishment_id=uuid.UUID(establishment_id),
+            name="Unica",
+            days_of_week="0,1,2,3,4,5,6",
+            start_time_local=time(0, 0),
+            end_time_local=time(23, 59, 59),
+            price_per_kwh=Decimal("2.0000"),
+            is_special=False,
+        )
+    )
+    db_session.commit()
+
+    session_id = client.post(
+        "/sessions/start",
+        json={"charger_id": charger_id},
+        headers={"Authorization": f"Bearer {customer_token}"},
+    ).json()["id"]
+    session = db_session.get(ChargingSession, uuid.UUID(session_id))
+    session.started_at = datetime.now(UTC) - timedelta(minutes=65)
+    db_session.commit()
+
+    charger = db_session.get(Charger, uuid.UUID(charger_id))
+    db_session.add_all(
+        [
+            ChargerReading(
+                charger_id=charger.id,
+                timestamp=session.started_at + timedelta(minutes=1),
+                power_kw=Decimal("6.000"),
+                status=ChargerStatus.carregando,
+            ),
+            ChargerReading(
+                charger_id=charger.id,
+                timestamp=session.started_at + timedelta(minutes=61),
+                power_kw=Decimal("6.000"),
+                status=ChargerStatus.carregando,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = client.get(
+        "/sessions/current", headers={"Authorization": f"Bearer {customer_token}"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    # Volvo EX30 = 51.000 kWh no catalogo; 6.000 kWh entregues / 6.000 kW atual.
+    assert Decimal(body["battery_pct_estimate"]) == Decimal("11.8")
+    assert body["estimated_minutes_remaining"] == 450
+
+
+def test_read_current_session_sem_modelo_de_veiculo_nao_traz_estimativa_de_bateria(
+    client, db_session
+):
+    owner_token, charger_id = _setup_livre_charger(client, db_session)
+    customer_token = _register_and_login(client, "cliente-sem-veiculo@teste.com", "customer")
+    _set_customer_rfid(client, customer_token)
+
+    establishment_id = client.get(
+        "/establishments/me", headers={"Authorization": f"Bearer {owner_token}"}
+    ).json()[0]["id"]
+    db_session.add(
+        TariffRule(
+            establishment_id=uuid.UUID(establishment_id),
+            name="Unica",
+            days_of_week="0,1,2,3,4,5,6",
+            start_time_local=time(0, 0),
+            end_time_local=time(23, 59, 59),
+            price_per_kwh=Decimal("2.0000"),
+            is_special=False,
+        )
+    )
+    db_session.commit()
+
+    session_id = client.post(
+        "/sessions/start",
+        json={"charger_id": charger_id},
+        headers={"Authorization": f"Bearer {customer_token}"},
+    ).json()["id"]
+    session = db_session.get(ChargingSession, uuid.UUID(session_id))
+    session.started_at = datetime.now(UTC) - timedelta(minutes=65)
+    db_session.commit()
+
+    charger = db_session.get(Charger, uuid.UUID(charger_id))
+    db_session.add(
+        ChargerReading(
+            charger_id=charger.id,
+            timestamp=session.started_at + timedelta(minutes=1),
+            power_kw=Decimal("6.000"),
+            status=ChargerStatus.carregando,
+        )
+    )
+    db_session.commit()
+
+    response = client.get(
+        "/sessions/current", headers={"Authorization": f"Bearer {customer_token}"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["battery_pct_estimate"] is None
+    assert body["estimated_minutes_remaining"] is None
+
+
 def test_read_current_session_404_no_mesmo_poll_que_fecha_a_sessao(client, db_session):
     """`sync_session` pode fechar a sessao (finished/error) dentro da propria chamada de
     `GET /sessions/current` - o contrato do endpoint e sempre pending/active ou 404, nunca
