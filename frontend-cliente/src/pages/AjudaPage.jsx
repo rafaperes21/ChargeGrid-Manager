@@ -22,7 +22,7 @@ export function AjudaPage() {
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-5">
-        <div className="max-w-[85%] self-start rounded-[16px_16px_16px_4px] bg-[#F7F5FB] px-[15px] py-[11px]">
+        <div className="max-w-[85%] self-start rounded-[16px_16px_16px_4px] border border-hairline bg-surface px-[15px] py-[11px]">
           <p className="text-[13px] leading-relaxed text-ink">
             Esse assistente ainda está em construção — hoje só o assistente técnico do
             proprietário tem ferramentas reais conectadas. Em breve dá para perguntar sobre sua
@@ -45,7 +45,7 @@ export function AjudaPage() {
       </div>
 
       <div className="border-t border-hairline px-5 py-3">
-        <div className="flex items-center gap-2 rounded-full border-[1.5px] border-[#E7E4F0] py-2 pl-4 pr-2">
+        <div className="flex items-center gap-2 rounded-full border-[1.5px] border-hairline py-2 pl-4 pr-2">
           <span className="flex-1 text-[13px] text-muted-3">Escreva sua pergunta…</span>
           <button
             type="button"
