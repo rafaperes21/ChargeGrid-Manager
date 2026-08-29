@@ -37,6 +37,7 @@ def create_tariff_rule(
         payload.days_of_week,
         payload.start_time_local,
         payload.end_time_local,
+        is_special=payload.is_special,
     )
 
     rule = TariffRule(**payload.model_dump())
@@ -69,12 +70,14 @@ def update_tariff_rule(
     days_of_week = updates.get("days_of_week", rule.days_of_week)
     start_time_local = updates.get("start_time_local", rule.start_time_local)
     end_time_local = updates.get("end_time_local", rule.end_time_local)
+    is_special = updates.get("is_special", rule.is_special)
     validate_no_overlap(
         db,
         rule.establishment_id,
         days_of_week,
         start_time_local,
         end_time_local,
+        is_special=is_special,
         exclude_id=rule.id,
     )
 

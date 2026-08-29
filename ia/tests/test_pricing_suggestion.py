@@ -15,7 +15,9 @@ from app.services.pricing_suggestion import (
 )
 
 
-def _rule(days_of_week: str, start: time, end: time, price: str = "1.0000") -> TariffRule:
+def _rule(
+    days_of_week: str, start: time, end: time, price: str = "1.0000", is_special: bool = False
+) -> TariffRule:
     return TariffRule(
         id=uuid.uuid4(),
         establishment_id=uuid.uuid4(),
@@ -24,7 +26,7 @@ def _rule(days_of_week: str, start: time, end: time, price: str = "1.0000") -> T
         start_time_local=start,
         end_time_local=end,
         price_per_kwh=Decimal(price),
-        is_special=False,
+        is_special=is_special,
     )
 
 
@@ -40,6 +42,17 @@ def test_resolve_tariff_rule_for_hour_crossing_midnight():
     assert resolve_tariff_rule_for_hour([rule], day_of_week=0, hour_local=23) is rule
     assert resolve_tariff_rule_for_hour([rule], day_of_week=1, hour_local=2) is rule
     assert resolve_tariff_rule_for_hour([rule], day_of_week=1, hour_local=10) is None
+
+
+def test_resolve_tariff_rule_for_hour_prefere_especial_sobreposta():
+    """Mesmo criterio de precedencia de `backend/app/services/tariffs.py` - uma faixa
+    especial sobreposta a uma padrao sempre vence, so dentro da propria janela."""
+    regular = _rule("0,1,2,3,4,5,6", time(0, 0), time(23, 59, 59))
+    special = _rule("4", time(18, 0), time(19, 0), price="2.4000", is_special=True)
+
+    assert resolve_tariff_rule_for_hour([regular, special], day_of_week=4, hour_local=18) is special
+    assert resolve_tariff_rule_for_hour([regular, special], day_of_week=4, hour_local=20) is regular
+    assert resolve_tariff_rule_for_hour([regular, special], day_of_week=5, hour_local=18) is regular
 
 
 def _hourly_series_with_bucket_values(

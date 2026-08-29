@@ -77,16 +77,24 @@ def resolve_tariff_rule_for_hour(
 ) -> TariffRule | None:
     """Acha a regra vigente num (dia, hora) do horizonte previsto - usa o inicio da hora como
     instante representativo. Uma regra que muda de preco no meio de uma hora do heatmap
-    (ex.: 18h30) nao e distinguida por hora cheia; mesma granularidade do heatmap de previsao."""
+    (ex.: 18h30) nao e distinguida por hora cheia; mesma granularidade do heatmap de previsao.
+
+    Mesmo criterio de precedencia de `backend/app/services/tariffs.py::resolve_active_tariff_rule`
+    (duplicado de proposito, servico read-only nunca importa codigo do backend): uma faixa
+    `is_special` sempre vence sobre uma padrao que se sobreponha - e como "Aplicar" cria uma
+    tarifa pontual sem fatiar a regra ampla existente."""
     moment = time(hour_local, 0)
+    matched_regular: TariffRule | None = None
     for rule in rules:
         intervals = _expand_to_day_intervals(
             rule.days_of_week, rule.start_time_local, rule.end_time_local
         )
         for day, start, end in intervals:
             if day == day_of_week and start <= moment < end:
-                return rule
-    return None
+                if rule.is_special:
+                    return rule
+                matched_regular = rule
+    return matched_regular
 
 
 def _round_price(value: Decimal) -> Decimal:

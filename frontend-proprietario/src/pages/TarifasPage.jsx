@@ -73,7 +73,7 @@ function PaymentMethodsSettings({ establishmentId }) {
 
 function PricingSuggestions({ establishmentId }) {
   const queryClient = useQueryClient()
-  const [appliedId, setAppliedId] = useState(null)
+  const [appliedKey, setAppliedKey] = useState(null)
   const cardsRef = useRef(null)
 
   const { data, isLoading } = useQuery({
@@ -96,12 +96,31 @@ function PricingSuggestions({ establishmentId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.suggestions?.length])
 
+  // "Aplicar" cria uma tarifa NOVA e especial, so pro (dia, hora) daquela sugestao - nunca
+  // sobrescreve a tarifa ampla existente (`s.tariff_rule_id` so serve pra mostrar o preco
+  // atual/nome no card). Antes disso, todas as sugestoes de um estabelecimento com uma unica
+  // tarifa "cobrindo o dia todo" apontavam pro mesmo id - aplicar qualquer uma mudava o
+  // preco do dia inteiro, e como so a lista de tarifas era invalidada (nao a de sugestoes),
+  // os outros cards continuavam mostrando o preco antigo como se nada tivesse mudado.
+  // `is_special: true` faz essa tarifa pontual vencer a ampla so naquela janela
+  // (`services/tariffs.resolve_active_tariff_rule` - especial sempre tem precedencia).
   const applyMutation = useMutation({
-    mutationFn: ({ tariffRuleId, price }) =>
-      apiClient.patch(`/tariffs/${tariffRuleId}`, { price_per_kwh: price }),
-    onSuccess: (_data, variables) => {
+    mutationFn: ({ suggestion }) => {
+      const startHour = String(suggestion.hour_local).padStart(2, '0')
+      const endHour = String((suggestion.hour_local + 1) % 24).padStart(2, '0')
+      return apiClient.post('/tariffs', {
+        establishment_id: establishmentId,
+        name: `Sugestão IA — ${DAY_LABELS[suggestion.day_of_week]} ${suggestion.hour_local}h`,
+        days_of_week: String(suggestion.day_of_week),
+        start_time_local: `${startHour}:00`,
+        end_time_local: `${endHour}:00`,
+        price_per_kwh: String(suggestion.suggested_price_per_kwh),
+        is_special: true,
+      })
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tariffs', establishmentId] })
-      setAppliedId(variables.tariffRuleId)
+      queryClient.invalidateQueries({ queryKey: ['pricing-suggestions', establishmentId] })
     },
   })
 
@@ -142,7 +161,8 @@ function PricingSuggestions({ establishmentId }) {
         {data.suggestions.map((s) => {
           const key = `${s.tariff_rule_id}-${s.day_of_week}-${s.hour_local}`
           const isIncrease = s.direction === 'increase'
-          const wasApplied = appliedId === s.tariff_rule_id && applyMutation.isSuccess
+          const wasApplied = appliedKey === key && applyMutation.isSuccess
+          const applyFailed = appliedKey === key && applyMutation.isError
           return (
             <div
               key={key}
@@ -167,16 +187,20 @@ function PricingSuggestions({ establishmentId }) {
                   R$ {Number(s.current_price_per_kwh).toFixed(2)} →{' '}
                   <strong>R$ {Number(s.suggested_price_per_kwh).toFixed(2)}</strong>/kWh
                 </p>
+                {applyFailed && (
+                  <p className="mt-1 text-xs text-status-problema">
+                    Já existe uma tarifa especial pra esse horário — edite ou remova ela na
+                    lista abaixo antes de aplicar de novo.
+                  </p>
+                )}
               </div>
               <Button
                 variant="ghost"
                 disabled={applyMutation.isPending}
-                onClick={() =>
-                  applyMutation.mutate({
-                    tariffRuleId: s.tariff_rule_id,
-                    price: String(s.suggested_price_per_kwh),
-                  })
-                }
+                onClick={() => {
+                  setAppliedKey(key)
+                  applyMutation.mutate({ suggestion: s, key })
+                }}
               >
                 {wasApplied ? 'Aplicado ✓' : 'Aplicar'}
               </Button>
