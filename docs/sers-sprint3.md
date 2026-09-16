@@ -19,7 +19,7 @@
 
 ## 2. Vídeo técnico
 
-[**▶ Assistir no YouTube**](SUBSTITUIR_PELO_LINK_DO_VIDEO) *(vídeo não listado, até 5 minutos)*
+[**▶ Assistir no YouTube**](https://youtu.be/Hig7HSn3GGs?si=b2EWANHHEKJ6hb5_) *(vídeo não listado, até 5 minutos)*
 
 ---
 
