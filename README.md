@@ -11,6 +11,9 @@ O ChargeGrid-Manager resolve isso com um serviço de polling que consulta o SEMS
 periodicamente e assume todo o controle de sessão, tarifação e dados — o hardware fica
 responsável apenas por autorizar o carregamento via RFID.
 
+## Entregas acadêmicas
+- [Sprint 3 — SERS (FIAP)](docs/sers-sprint3.md)
+
 ## Estrutura
 
 | Pasta | Conteúdo |
