@@ -17,7 +17,13 @@
 
 ---
 
-## 2. Evolução do projeto
+## 2. Vídeo técnico
+
+[**▶ Assistir no YouTube**](SUBSTITUIR_PELO_LINK_DO_VIDEO) *(vídeo não listado, até 5 minutos)*
+
+---
+
+## 3. Evolução do projeto
 
 | Sprint | Entrega |
 |---|---|
@@ -33,7 +39,7 @@ anomalias.
 
 ---
 
-## 3. Esquema de integração dos componentes
+## 4. Esquema de integração dos componentes
 
 ### 3.1 Arquitetura geral
 
@@ -122,7 +128,7 @@ Microsserviço de IA usa o histórico para prever demanda e sugerir tarifa
 
 ---
 
-## 4. Justificativa técnica das escolhas
+## 5. Justificativa técnica das escolhas
 
 - **Polling em vez de webhook**: o SEMS+ da GoodWe só permite consulta (Pull); não existe
   alternativa de notificação em tempo real, então o worker de polling é a única forma de
@@ -145,7 +151,7 @@ Microsserviço de IA usa o histórico para prever demanda e sugerir tarifa
 
 ---
 
-## 5. Resultados e dados funcionais apresentados
+## 6. Resultados e dados funcionais apresentados
 
 - Sessão de recarga completa executada de ponta a ponta: início via RFID simulado → leituras
   de potência atualizando a curva em tempo real → encerramento manual pelo cliente → recibo com
@@ -170,7 +176,7 @@ Microsserviço de IA usa o histórico para prever demanda e sugerir tarifa
 
 ---
 
-## 6. Conexão com os conteúdos da disciplina
+## 7. Conexão com os conteúdos da disciplina
 
 | Conceito da disciplina | Onde aparece no protótipo |
 |---|---|
@@ -182,7 +188,7 @@ Microsserviço de IA usa o histórico para prever demanda e sugerir tarifa
 
 ---
 
-## 7. Como executar o protótipo
+## 8. Como executar o protótipo
 
 Pré-requisitos: Docker (PostgreSQL), Python 3.11, Node 20.
 
@@ -212,7 +218,7 @@ ChargeGrid-Manager/
 
 ---
 
-## 8. Limitações conhecidas (transparência)
+## 9. Limitações conhecidas (transparência)
 
 - Pagamento é **declarativo**: o sistema registra a forma de pagamento escolhida, mas não
   processa cobrança real (sem gateway, sem PCI) — decisão de escopo do desafio, não pendência.
