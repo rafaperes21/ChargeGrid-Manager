@@ -1,5 +1,4 @@
 import uuid
-from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -18,16 +17,14 @@ from app.schemas.session import (
     SessionPaymentMethodUpdate,
     SessionStartRequest,
 )
-from app.services.dashboard import latest_reading
+from app.services.current_session import get_current_session_snapshot
 from app.services.sessions import (
     build_receipt,
-    estimate_live_amount,
     set_payment_method,
     start_session,
     stop_session_manually,
     sync_session,
 )
-from app.services.vehicle_battery import estimate_battery_status
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -45,48 +42,16 @@ def start_charging_session(
 def read_current_session(
     db: Session = Depends(get_db), current_user: User = Depends(require_customer)
 ) -> CurrentSessionRead:
-    session = (
-        db.query(ChargingSession)
-        .filter(
-            ChargingSession.user_id == current_user.id,
-            ChargingSession.status.in_(
-                [ChargingSessionStatus.pending, ChargingSessionStatus.active]
-            ),
-        )
-        .first()
-    )
-    if session is None:
+    snapshot = get_current_session_snapshot(db, current_user)
+    if snapshot is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Nenhuma sessao em andamento"
         )
-    session = sync_session(db, session)
-
-    if session.status not in (ChargingSessionStatus.pending, ChargingSessionStatus.active):
-        # sync_session pode fechar a sessao (finished/error) nesta mesma chamada - o
-        # contrato deste endpoint e sempre "pending/active, ou 404", nunca vazar um status
-        # terminal so porque a transicao aconteceu neste poll especifico. Quem quiser o
-        # resultado fechado usa GET /sessions/{id}/receipt.
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Nenhuma sessao em andamento"
-        )
-
-    estimated_amount_due = None
-    battery_pct_estimate = None
-    estimated_minutes_remaining = None
-    if session.status == ChargingSessionStatus.active:
-        estimated_amount_due = estimate_live_amount(db, session, datetime.now(tz=UTC))
-        reading = latest_reading(db, session.charger_id)
-        battery_pct_estimate, estimated_minutes_remaining = estimate_battery_status(
-            vehicle_model=current_user.vehicle_model,
-            energy_kwh=session.energy_kwh,
-            current_power_kw=reading.power_kw if reading else None,
-        )
-
     return CurrentSessionRead(
-        **ChargingSessionRead.model_validate(session).model_dump(),
-        estimated_amount_due=estimated_amount_due,
-        battery_pct_estimate=battery_pct_estimate,
-        estimated_minutes_remaining=estimated_minutes_remaining,
+        **ChargingSessionRead.model_validate(snapshot.session).model_dump(),
+        estimated_amount_due=snapshot.estimated_amount_due,
+        battery_pct_estimate=snapshot.battery_pct_estimate,
+        estimated_minutes_remaining=snapshot.estimated_minutes_remaining,
     )
 
 
