@@ -1,8 +1,9 @@
 # ChargeGrid-Manager
 
 Plataforma de gestão de carregamento de veículos elétricos sobre o **GoodWe HCA G2**.
-Dois portais web — proprietário do estabelecimento e cliente final —, backend único e módulo
-de IA para previsão de demanda, detecção de anomalias e segmentação de clientes.
+Dois portais web — proprietário do estabelecimento e cliente final —, backend único, módulo
+de IA para previsão de demanda, precificação sugerida e detecção de anomalias, e gestão de
+energia do eletroposto com **geração solar + bateria** (simuladas) e **controle de demanda**.
 
 ## O problema
 
@@ -12,17 +13,19 @@ periodicamente e assume todo o controle de sessão, tarifação e dados — o ha
 responsável apenas por autorizar o carregamento via RFID.
 
 ## Entregas acadêmicas
+- [Sprint 4 — SERS (FIAP): solução final integrada](docs/sers-sprint4.md) · [resultados quantitativos](docs/resultados/cenarios.md) (dados simulados)
 - [Sprint 3 — SERS (FIAP)](docs/sers-sprint3.md)
 
 ## Estrutura
 
 | Pasta | Conteúdo |
 |---|---|
-| `backend/` | API FastAPI + serviço de polling + simulador do hardware |
+| `backend/` | API FastAPI + serviço de polling (EMS: controle de demanda, despacho solar/bateria) + simulador do hardware |
+| `backend/scripts/` | `cenarios.py` — resultados quantitativos A (sem o sistema) × B (com o sistema) |
 | `frontend-proprietario/` | Portal do estabelecimento (React + Tailwind, desktop-first) |
 | `frontend-cliente/` | Portal do motorista (React + Tailwind, mobile-first) |
-| `ia/` | Microserviço de ML (Prophet, detecção de anomalias, K-Means) |
-| `docs/` | Arquitetura, modelo de dados, telas |
+| `ia/` | Microserviço de ML (Prophet, precificação sugerida, detecção de anomalias por regras) |
+| `docs/` | Arquitetura, modelo de dados, telas, entregas da disciplina, `resultados/` e `img/` |
 | `tasks/milestones/` | Plano de execução — **comece por aqui** |
 | `.claude/skills/` | Conhecimento de domínio: dimensionamento, tarifação, simulação, prompts, ML |
 
@@ -40,7 +43,9 @@ completa, por fase e com pontos de sincronização, em
 
 ## Rodando localmente
 
-Pré-requisitos: Docker (Postgres), Python 3.11, Node 20.
+Pré-requisitos: Docker (Postgres), Python 3.11, Node 20. Para os assistentes virtuais:
+[Ollama](https://ollama.com) com o modelo `llama3.1:8b` (`ollama pull llama3.1:8b`) — sem ele
+o resto do sistema funciona e o assistente responde que está indisponível.
 
 ### Caminho rápido — um comando só
 
@@ -53,8 +58,9 @@ Pré-requisitos: Docker (Postgres), Python 3.11, Node 20.
 ```
 
 Idempotente: cria os `.env` que faltarem, sobe o Postgres, cria/instala os venvs (Python 3.11)
-e `node_modules` que faltarem, roda migration+seed+gerador de histórico no backend, e abre os
-4 serviços (backend, IA, os dois frontends). Rodar de novo não duplica nada nem reinstala do
+e `node_modules` que faltarem, roda migration+seed (inclui inversor solar e bateria simulados)+
+gerador de histórico+histórico de fluxo de energia no backend, e abre os serviços (backend, IA,
+worker de polling e os dois frontends). Rodar de novo não duplica nada nem reinstala do
 zero.
 
 Flags úteis: `-Only backend,ia` (ou `--only backend,ia`) sobe só o que interessa para o vídeo
@@ -90,7 +96,7 @@ docker compose up -d
 cd backend
 python3.11 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/alembic upgrade head
-.venv/bin/python -m app.db.seed          # popula 1 estabelecimento + 4 carregadores de demo
+.venv/bin/python -m app.db.seed          # 1 estabelecimento + 4 carregadores + inversor/bateria
 .venv/bin/uvicorn app.main:app --reload  # sobe em :8000
 ```
 
@@ -110,6 +116,22 @@ Gera 60–90 dias de leituras (`charger_readings`) para os carregadores já seed
 `--seed` fixo para reprodutibilidade, e imprime no final onde cada uma das 4 anomalias de
 demonstração (potência zerada, acima da nominal, offline, energia regredindo) foi injetada —
 útil para saber o que apontar na gravação. Rodar de novo sem `--force` não duplica dados.
+
+Histórico do fluxo de energia (solar, bateria, rede) a partir dessas leituras — dados simulados:
+
+```bash
+.venv/bin/python -m simulador.energy_backfill --days 60
+```
+
+### 3b. Worker de polling (EMS)
+
+Sem ele nenhuma sessão evolui de `pending` para `active` e a tela "Fluxo de energia" não recebe
+leitura nova. A cada ciclo: lê solar/bateria, aplica o controle de demanda, lê os carregadores,
+despacha solar → bateria → rede e grava o fluxo.
+
+```bash
+.venv/bin/python -m app.integracoes.polling
+```
 
 ### 4. Serviço de IA
 
@@ -138,7 +160,19 @@ cd frontend-proprietario && npm install && npm run dev
 cd frontend-cliente && npm install && npm run dev
 ```
 
-Ainda são telas em branco (M4/M5 não começaram) — sobem, mas não têm o que mostrar.
+Cada um abre na porta que o Vite imprimir (5173 para o primeiro que subir, 5174 para o
+segundo). Logins de demonstração criados pelo seed, só para ambiente local: proprietário
+`dono@chargegrid.demo` e cliente `cliente@chargegrid.demo`, senha `demo1234`.
+
+### 6. Resultados quantitativos (dados simulados)
+
+```bash
+cd backend
+.venv/bin/python -m scripts.cenarios     # docs/resultados/*.csv|.md e docs/img/*.png
+```
+
+Mesmo `--seed` → mesma saída. Fontes do fator de emissão (MCTI) e das tarifas (ANEEL) estão
+no próprio script e em [docs/sers-sprint4.md](docs/sers-sprint4.md).
 
 ### Verificação rápida
 
@@ -146,7 +180,10 @@ Ainda são telas em branco (M4/M5 não começaram) — sobem, mas não têm o qu
 
 ## Limitações conhecidas
 
-- A API do EV Charger da GoodWe não está disponível; a integração usa polling do SEMS+.
+- A API do EV Charger da GoodWe não está disponível; a integração usa polling do SEMS+, que é
+  Pull-only — os setpoints de potência e de bateria só têm efeito no simulador.
+- Inversor solar e bateria são **simulados** (premissas de dimensionamento, não datasheet).
+- Assistentes rodam em LLM local (`llama3.1:8b`): 30–100 s por resposta em CPU.
 - Na demo, os dados de hardware vêm de um **simulador** que reproduz a curva P(t) real de
   carregamento. O contrato de dados é idêntico ao esperado do SEMS+.
 - Potências nominais em rede 220/380 V e preços de aquisição dos modelos GW7K/GW11K/GW22K

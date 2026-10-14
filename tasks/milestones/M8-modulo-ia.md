@@ -45,7 +45,9 @@ no dashboard custa mais caro que "ainda coletando dados".
       conectado · potência acima da nominal · offline por > 3 ciclos · energia acumulada
       regredindo (`ia/app/services/anomalies.py`)
 - [ ] Camada estatística: Isolation Forest ou z-score em janela móvel, por carregador e horário —
-      não implementada; `ia/requirements.txt` não tem scikit-learn
+      não implementada; `ia/requirements.txt` não tem scikit-learn. **Sprint 4 (14/10/2026):
+      fase opcional pulada por decisão do time** — registrada como limitação em
+      `docs/sers-sprint4.md`
 - [x] Alerta no dashboard com severidade **e a leitura que disparou** anexada
 - [ ] Botão de "falso positivo" com o feedback persistido — é o único rótulo real disponível
 
