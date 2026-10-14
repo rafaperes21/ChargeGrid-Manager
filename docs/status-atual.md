@@ -1,9 +1,32 @@
 # Status atual do projeto
 
-> Snapshot em 27/08/2026. Documento vivo — atualizar a cada rodada grande de trabalho (ver
+> Snapshot em 14/10/2026 (Sprint 4). Documento vivo — atualizar a cada rodada grande de trabalho (ver
 > `tasks/milestones/` para o detalhe tarefa a tarefa; este arquivo é a visão executiva).
 
 ## 1. O que está feito
+
+### Sprint 4 (14/10/2026) — entrega final da disciplina, ver [sers-sprint4.md](sers-sprint4.md)
+- **Solar + bateria (PR #24)**: inversor solar e bateria GoodWe **simulados** atrás da interface
+  `SemsClient` (`fetch_site_energy`/`apply_setpoints`); despacho solar → bateria → rede
+  (`services/energy_dispatch.py`) e **controle de demanda real** (`services/demand_control.py`)
+  no worker de polling; tabelas `energy_assets` e `site_energy_readings`; tela "Fluxo de energia"
+  no portal do proprietário; backfill histórico (`simulador.energy_backfill`, no `dev.sh`).
+  Correção registrada: até aqui só existia o *alerta* de 90%, não a limitação de potência que o
+  `sers-sprint3.md` descrevia.
+- **Assistentes virtuais (PR #25, fecha o M7)**: proprietário com receita, sessões, tarifa,
+  fluxo de energia, previsão e dimensionamento; cliente com sessão, recibo, plano, fila e
+  tarifa (sem ferramenta financeira); resposta fixa de emergência fora do LLM; streaming SSE
+  nos dois portais. LLM local (Ollama `llama3.1:8b`).
+- **Cenários A vs B (PR #26)**: `backend/scripts/cenarios.py` gera `docs/resultados/` e
+  `docs/img/` (dados simulados), com fator de emissão do MCTI e tarifas da ANEEL citados e
+  sensibilidade em 30 dias.
+- **Modo de bateria "reserva para a ponta" (PR #27)**: opção do proprietário na tela de fluxo
+  de energia; reduz o custo na Tarifa Branca (custo médio em 30 dias: R$ 241,05 contra
+  R$ 253,26 do autoconsumo e R$ 267,73 sem o sistema).
+- **Banco de dev**: 7 sessões presas desde ago/set foram fechadas em 14/10/2026 (só o trecho
+  contínuo de leituras de cada uma entrou no cálculo). A regra de tarifa "teste" (R$ 40/kWh,
+  dia todo, criada em testes) foi apagada e a base "Única" de R$ 2,00/kWh (valor do seed)
+  recriada; as sessões antigas mantêm o valor cobrado via snapshot da tarifa.
 
 ### Núcleo do produto (nunca cortado, per `tasks/README.md`)
 - **M0-M1** — fundação do repositório e modelo de dados/backend core.
@@ -59,13 +82,14 @@ Ordenado por urgência para a apresentação/demo, não por número de milestone
 - Roteiro de demo cronometrado, dados determinísticos e plano B em vídeo — nada feito.
 - Slides da apresentação — não feitos (o resto da documentação — README, arquitetura, modelo de dados, limitações — já está pronto).
 
-### M7 — Chatbots (parcial)
-- Infra e segurança básicas prontas (backend intermedia a conversa, autorização por token).
-- Faltam as ferramentas reais dos dois bots (consultas de status/receita/tarifa/sessão), streaming de resposta, resposta fixa para relato de emergência. O chatbot do cliente ainda está "em construção" na UI (mitigado nesta rodada com o FAQ estático de `AjudaPage.jsx`, mas o assistente em si não tem ferramentas conectadas).
+### M7 — Chatbots (fechado na Sprint 4)
+- Pendente só melhoria de qualidade do LLM: com `llama3.1:8b` local, pergunta composta às vezes
+  consulta só uma ferramenta; 30–100 s por resposta em CPU. Trocar por modelo maior/hospedado
+  é decisão de deploy (M9).
 
 ### M8 — IA/ML (parcial)
 - Previsão de demanda e precificação sugerida: fechadas.
-- Detecção de anomalias: só a camada de regras determinísticas; falta a camada estatística (Isolation Forest/z-score) e o botão de "falso positivo".
+- Detecção de anomalias: só a camada de regras determinísticas; falta a camada estatística (Isolation Forest/z-score) e o botão de "falso positivo" — **fora da Sprint 4 por decisão do time** (fase opcional pulada).
 - Segmentação de clientes (K-Means): nada implementado — é item explicitamente cortável se o tempo apertar.
 - Engenharia (versionamento de modelo, retreino agendado): não feita.
 
@@ -90,6 +114,9 @@ Ordem de corte definida em `tasks/README.md` se o tempo apertar: modo empresaria
 | Pinos individuais por carregador no mini-mapa de detalhe do estabelecimento | `frontend-cliente/src/pages/MapaDetalhePage.jsx` | `Charger` não tem coordenada própria no banco (só `Establishment`); os pinos usam um offset visual (~50m em círculo) ao redor do ponto real — nunca GPS preciso. Documentado em `M10-motion-mapa-3d.md`. |
 | Pagamento (`payment_method` na sessão) | `services/sessions.py`, `SessaoPage.jsx` | Declarativo por decisão de escopo do desafio GoodWe — registra a escolha, nunca processa cobrança de verdade (sem gateway, sem PCI). Não é um "falta terminar", é definitivo para este projeto. |
 | Suporte por estabelecimento (`support_phone`/`support_email` do dono) | ideia registrada, não implementada | Diferente do `SUPPORT_CONTACT` acima (que é da plataforma) — esse seria por estabelecimento, ainda não tem campo no banco. |
+| Inversor solar (20 kWp) e bateria (20 kWh, 10 kW, SoC mín. 10%, 90%) do Estacionamento Central | `backend/app/db/seed_energy.py` | Premissas de simulação, não especificação de um modelo GoodWe (`TODO(datasheet)`). Solar e bateria são simulados — não há equipamento físico. |
+| Setpoints de carregador e bateria | `SimulatedSemsClient.apply_setpoints` | Só o simulador obedece. O SEMS+ real é Pull-only; comandar o HCA G2/bateria exigiria gestão de carga local ou OCPP. |
+| Resultados quantitativos | `docs/resultados/`, `docs/img/` | Dados simulados de `scripts/cenarios.py`; demanda não reage a preço; sem SCEE, impostos e bandeira. |
 | Capacidade de bateria por modelo de veículo | `backend/app/services/vehicle_battery.py` | Valores aproximados de especificação pública do fabricante (podem variar por versão/ano/mercado) — usados só pra estimar %/tempo restante, nunca apresentados como o dado exato do carro do cliente. Estimativa também assume que a sessão começou com o veículo vazio (0%), única forma de estimar sem telemetria real da bateria. |
 
 ## Como subir e regenerar o ambiente de demo do zero
@@ -114,4 +141,6 @@ a detecção de anomalias aparecem como "indisponível".
 cd backend && alembic upgrade head
 python -m app.db.seed              # estabelecimento, carregadores, planos, 1 owner, 1 customer
 python -m app.db.seed_demo_history # 4 clientes de demo com historico "real e possivel" (provisorio)
+python -m simulador.energy_backfill --days 60   # historico de fluxo solar/bateria (simulado)
+python -m scripts.cenarios         # regenera docs/resultados e docs/img (dados simulados)
 ```
