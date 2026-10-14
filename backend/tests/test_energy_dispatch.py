@@ -135,3 +135,60 @@ def test_battery_never_charges_from_grid():
 def test_energy_balance_holds_across_cases(load, solar, soc):
     result = dispatch(D(load), D(solar), _battery(), D(soc), D("40"), ONE_MIN)
     _assert_balanced(result)
+
+
+# --- modo reserva para a ponta (battery_free_discharge=False fora da ponta) ---
+
+
+def test_reserve_mode_stores_solar_first_outside_peak():
+    # fora da ponta: o solar vai para a bateria e a carga vem da rede (kWh barato)
+    result = dispatch(
+        D("20"), D("6"), _battery(), D("80"), D("40"), ONE_MIN, battery_free_discharge=False
+    )
+    assert result.solar_to_battery_kw == D("6.000")
+    assert result.battery_to_load_kw == 0
+    assert result.grid_to_load_kw == D("20.000")
+    assert result.soc_after_pct > D("80")
+    _assert_balanced(result)
+
+
+def test_reserve_mode_never_stores_if_that_breaks_the_limit():
+    # 44 kW de carga, 6 kW de solar, limite 40: guardar os 6 kW estouraria o limite -
+    # 4 kW de solar voltam para a carga, so 2 kW vao para a bateria
+    result = dispatch(
+        D("44"), D("6"), _battery(), D("80"), D("40"), ONE_MIN, battery_free_discharge=False
+    )
+    assert result.grid_to_load_kw == D("40.000")
+    assert result.solar_to_load_kw == D("4.000")
+    assert result.solar_to_battery_kw == D("2.000")
+    assert result.unserved_kw == 0
+    _assert_balanced(result)
+
+
+def test_reserve_mode_still_shaves_above_contracted_limit():
+    # 48 kW de carga, 0 solar, limite 40: a bateria cobre so os 8 kW acima do limite
+    result = dispatch(
+        D("48"), D("0"), _battery(), D("80"), D("40"), ONE_MIN, battery_free_discharge=False
+    )
+    assert result.battery_to_load_kw == D("8.000")
+    assert result.grid_to_load_kw == D("40.000")
+    assert result.unserved_kw == 0
+    _assert_balanced(result)
+
+
+def test_reserve_mode_charges_up_to_max_then_sends_rest_to_load():
+    result = dispatch(
+        D("2"), D("14"), _battery(), D("50"), D("40"), ONE_MIN, battery_free_discharge=False
+    )
+    assert result.solar_to_battery_kw == D("10.000")  # potencia maxima de carga
+    assert result.solar_to_load_kw == D("2.000")
+    assert result.solar_surplus_kw == D("2.000")
+    _assert_balanced(result)
+
+
+def test_reserve_mode_at_peak_behaves_like_self_consumption():
+    free = dispatch(D("20"), D("6"), _battery(), D("80"), D("40"), ONE_MIN)
+    at_peak = dispatch(
+        D("20"), D("6"), _battery(), D("80"), D("40"), ONE_MIN, battery_free_discharge=True
+    )
+    assert free == at_peak

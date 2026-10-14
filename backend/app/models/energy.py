@@ -8,7 +8,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
-from app.models.enums import EnergyAssetKind
+from app.models.enums import BatteryDispatchMode, EnergyAssetKind
 
 if TYPE_CHECKING:
     from app.models.establishment import Establishment
@@ -42,6 +42,13 @@ class EnergyAsset(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     min_soc_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), default=None)
     round_trip_efficiency_pct: Mapped[Decimal | None] = mapped_column(
         Numeric(5, 2), default=None
+    )
+    # Politica de descarga (so faz sentido para `battery`; inversor ignora). Default =
+    # autoconsumo, o comportamento original da Fase 1.
+    dispatch_mode: Mapped[BatteryDispatchMode] = mapped_column(
+        SAEnum(BatteryDispatchMode, name="battery_dispatch_mode"),
+        default=BatteryDispatchMode.self_consumption,
+        server_default=BatteryDispatchMode.self_consumption.value,
     )
 
     establishment: Mapped["Establishment"] = relationship()

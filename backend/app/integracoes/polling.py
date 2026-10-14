@@ -34,13 +34,13 @@ from app.core.config import settings
 from app.db.session import SessionLocal
 from app.integracoes.sems_client import SemsClient, get_sems_client
 from app.models.charger import Charger, ChargerReading
-from app.models.energy import SiteEnergyReading
+from app.models.energy import EnergyAsset, SiteEnergyReading
 from app.models.enums import ChargerStatus, ChargingSessionStatus
 from app.models.establishment import Establishment
 from app.models.session import ChargingSession
 from app.schemas.charger_reading import ChargerReadingContract, SiteEnergyContract
 from app.services.demand_control import allocate_power
-from app.services.energy_assets import battery_spec, get_site_assets
+from app.services.energy_assets import battery_free_discharge, battery_spec, get_site_assets
 from app.services.energy_dispatch import BatterySpec, dispatch, max_discharge_kw
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ class _SitePlan:
 
     establishment: Establishment
     site: SiteEnergyContract | None
-    battery_serial: str | None
+    battery_asset: EnergyAsset | None
     battery: BatterySpec | None
     demand_limited_kw: Decimal
 
@@ -156,7 +156,7 @@ class PollingService:
                 _SitePlan(
                     establishment=establishment,
                     site=site,
-                    battery_serial=battery_asset.sems_serial if battery_asset else None,
+                    battery_asset=battery_asset,
                     battery=spec,
                     demand_limited_kw=sum(requested.values(), Decimal("0"))
                     - sum(allocated.values(), Decimal("0")),
@@ -197,6 +197,7 @@ class PollingService:
             soc_pct=plan.site.battery_soc_pct if plan.site else None,
             grid_limit_kw=plan.establishment.power_limit_kw,
             dt_h=self._dt_hours(),
+            battery_free_discharge=battery_free_discharge(plan.battery_asset, timestamp),
         )
         db.add(
             SiteEnergyReading(
@@ -267,8 +268,8 @@ class PollingService:
         battery_setpoints: dict[str, Decimal] = {}
         for plan in plans:
             setpoint = self._persist_site_reading(db, plan, readings, serial_to_charger)
-            if setpoint is not None and plan.battery_serial is not None:
-                battery_setpoints[plan.battery_serial] = setpoint
+            if setpoint is not None and plan.battery_asset is not None:
+                battery_setpoints[plan.battery_asset.sems_serial] = setpoint
         db.commit()
 
         if battery_setpoints:

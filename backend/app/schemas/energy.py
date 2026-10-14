@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
-from app.models.enums import EnergyAssetKind
+from app.models.enums import BatteryDispatchMode, EnergyAssetKind
 
 
 class EnergyAssetOut(BaseModel):
@@ -15,8 +15,13 @@ class EnergyAssetOut(BaseModel):
     max_charge_kw: Decimal | None = None
     max_discharge_kw: Decimal | None = None
     min_soc_pct: Decimal | None = None
+    dispatch_mode: BatteryDispatchMode | None = None
 
     model_config = {"from_attributes": True}
+
+
+class BatteryModeUpdate(BaseModel):
+    dispatch_mode: BatteryDispatchMode
 
 
 class EnergyFlowPoint(BaseModel):
