@@ -8,11 +8,18 @@ import pytest
 from app.integracoes.polling import PollingService
 from app.integracoes.sems_client import SemsClient
 from app.models.charger import Charger, ChargerReading
-from app.models.enums import ChargerModel, ChargerStatus, ChargingSessionStatus, UserRole
+from app.models.energy import EnergyAsset, SiteEnergyReading
+from app.models.enums import (
+    ChargerModel,
+    ChargerStatus,
+    ChargingSessionStatus,
+    EnergyAssetKind,
+    UserRole,
+)
 from app.models.establishment import Establishment
 from app.models.session import ChargingSession
 from app.models.user import User
-from app.schemas.charger_reading import ChargerReadingContract
+from app.schemas.charger_reading import ChargerReadingContract, SiteEnergyContract
 
 
 def _run(coro):
@@ -229,3 +236,138 @@ def test_sucesso_depois_de_falhas_zera_o_contador(db_session, establishment):
     )
     _run(service.poll_once(db_session))
     assert service.consecutive_failures == 0
+
+
+# --- Sprint 4: controle de demanda + despacho solar/bateria no tick de polling ---
+
+
+class _EnergyFakeSemsClient(_FakeSemsClient):
+    """Fake que tambem reporta solar/SoC e grava os setpoints que o backend mandou."""
+
+    def __init__(self, readings_by_call, solar_kw, soc_pct):
+        super().__init__(readings_by_call)
+        self.solar_kw = solar_kw
+        self.soc_pct = soc_pct
+        self.caps_sent: list[dict] = []
+        self.battery_sent: list[dict] = []
+
+    async def fetch_site_energy(self, inverter_serial, battery_serial, db):
+        return SiteEnergyContract(
+            timestamp=datetime.now(UTC), solar_kw=self.solar_kw, battery_soc_pct=self.soc_pct
+        )
+
+    async def apply_setpoints(self, charger_caps_kw=None, battery_setpoints_kw=None):
+        if charger_caps_kw is not None:
+            self.caps_sent.append(charger_caps_kw)
+        if battery_setpoints_kw:
+            self.battery_sent.append(battery_setpoints_kw)
+
+
+def _add_assets(db, establishment):
+    db.add_all(
+        [
+            EnergyAsset(
+                establishment_id=establishment.id,
+                kind=EnergyAssetKind.inverter,
+                sems_serial=f"INV-{uuid.uuid4().hex[:6]}",
+                model="Inversor hibrido (simulado)",
+                rated_kw=Decimal("20.000"),
+            ),
+            EnergyAsset(
+                establishment_id=establishment.id,
+                kind=EnergyAssetKind.battery,
+                sems_serial=f"BAT-{uuid.uuid4().hex[:6]}",
+                model="Bateria (simulada)",
+                capacity_kwh=Decimal("20.000"),
+                max_charge_kw=Decimal("10.000"),
+                max_discharge_kw=Decimal("10.000"),
+                min_soc_pct=Decimal("10.00"),
+                round_trip_efficiency_pct=Decimal("90.00"),
+            ),
+        ]
+    )
+    db.commit()
+
+
+def _open_session(db, establishment, charger):
+    db.add(
+        ChargingSession(
+            user_id=_make_user(db).id,
+            charger_id=charger.id,
+            establishment_id=establishment.id,
+            status=ChargingSessionStatus.active,
+            started_at=datetime.now(UTC),
+        )
+    )
+    db.commit()
+
+
+def _reading(charger, power, now):
+    return ChargerReadingContract(
+        charger_serial=charger.sems_serial,
+        timestamp=now,
+        power_kw=Decimal(power),
+        status=ChargerStatus.carregando,
+        total_energy_kwh=Decimal("1.000"),
+    )
+
+
+def test_poll_once_aplica_controle_de_demanda_sem_solar(db_session, establishment):
+    # 4 x 11 kW pedidos com limite de 40 kW e nada de solar/bateria -> 10 kW cada
+    chargers = [
+        _make_charger(db_session, establishment, status=ChargerStatus.carregando)
+        for _ in range(4)
+    ]
+    for charger in chargers:
+        _open_session(db_session, establishment, charger)
+    now = datetime.now(UTC)
+    fake = _EnergyFakeSemsClient([[_reading(c, "10", now) for c in chargers]], Decimal("0"), None)
+
+    _run(PollingService(fake).poll_once(db_session))
+
+    assert fake.caps_sent[0] == {c.sems_serial: Decimal("10.000") for c in chargers}
+    site = db_session.query(SiteEnergyReading).one()
+    assert site.load_kw == Decimal("40.000")
+    assert site.grid_to_load_kw == Decimal("40.000")
+    assert site.demand_limited_kw == Decimal("4.000")
+
+
+def test_poll_once_solar_e_bateria_ampliam_o_disponivel(db_session, establishment):
+    _add_assets(db_session, establishment)
+    chargers = [
+        _make_charger(db_session, establishment, status=ChargerStatus.carregando)
+        for _ in range(4)
+    ]
+    for charger in chargers:
+        _open_session(db_session, establishment, charger)
+    now = datetime.now(UTC)
+    fake = _EnergyFakeSemsClient(
+        [[_reading(c, "11", now) for c in chargers]], Decimal("3.000"), Decimal("60.00")
+    )
+
+    _run(PollingService(fake).poll_once(db_session))
+
+    # 40 rede + 3 solar + 10 bateria > 44 pedidos -> ninguem e limitado
+    assert all(cap == Decimal("11.000") for cap in fake.caps_sent[0].values())
+    site = db_session.query(SiteEnergyReading).one()
+    assert site.solar_to_load_kw == Decimal("3.000")
+    assert site.battery_to_load_kw == Decimal("10.000")
+    assert site.grid_to_load_kw == Decimal("31.000")
+    assert site.battery_soc_pct == Decimal("60.00")
+    # setpoint da bateria enviado ao equipamento depois do despacho
+    assert list(fake.battery_sent[0].values()) == [Decimal("10.000")]
+
+
+def test_poll_once_leitura_de_energia_e_idempotente(db_session, establishment):
+    charger = _make_charger(db_session, establishment, status=ChargerStatus.livre)
+    now = datetime.now(UTC)
+    reading = _reading(charger, "0", now)
+    fake = _EnergyFakeSemsClient([[reading], [reading]], Decimal("5.000"), None)
+    service = PollingService(fake)
+
+    _run(service.poll_once(db_session))
+    _run(service.poll_once(db_session))
+
+    rows = db_session.query(SiteEnergyReading).all()
+    assert len(rows) == 1
+    assert rows[0].solar_surplus_kw == Decimal("5.000")

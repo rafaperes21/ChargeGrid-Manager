@@ -5,6 +5,7 @@ Uso: `cd backend && python -m app.db.seed` (com o venv ativado e o Postgres de p
 from decimal import Decimal
 
 from app.core.security import hash_password
+from app.db.seed_energy import ensure_energy_assets
 from app.db.session import SessionLocal
 from app.models.charger import Charger
 from app.models.enums import ChargerModel, ChargerStatus, PlanKind, UserRole
@@ -19,6 +20,14 @@ def run() -> None:
     try:
         existing = db.query(Establishment).first()
         if existing is not None:
+            # Bancos seedados antes da Sprint 4 nao tem inversor/bateria - completa so isso.
+            central = (
+                db.query(Establishment)
+                .filter(Establishment.name == "Estacionamento Central")
+                .first()
+            )
+            if central is not None and ensure_energy_assets(db, central):
+                print("Inversor solar e bateria (simulados) adicionados ao Estacionamento Central.")
             print("Seed ja aplicado - abortando para nao duplicar dados.")
             print(f"Establishment id: {existing.id}")
             return
@@ -83,7 +92,9 @@ def run() -> None:
         db.add(customer)
 
         db.commit()
-        print("Seed aplicado: 1 estabelecimento, 4 carregadores, 2 planos, 1 owner, 1 customer.")
+        ensure_energy_assets(db, establishment)
+        print("Seed aplicado: 1 estabelecimento, 4 carregadores, 2 planos, 1 owner, 1 customer,"
+              " inversor solar + bateria (simulados).")
         print(f"Establishment id: {establishment.id}")
     finally:
         db.close()

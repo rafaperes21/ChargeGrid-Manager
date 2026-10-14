@@ -7,11 +7,12 @@ fora de `app/integracoes/`.
 """
 
 from abc import ABC, abstractmethod
+from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.schemas.charger_reading import ChargerReadingContract
+from app.schemas.charger_reading import ChargerReadingContract, SiteEnergyContract
 
 
 class SemsClient(ABC):
@@ -24,6 +25,23 @@ class SemsClient(ABC):
         certa) - o SEMS+ real ignoraria esse parametro, ele so existe pra manter as duas
         implementacoes com a mesma assinatura."""
         raise NotImplementedError
+
+    async def fetch_site_energy(
+        self, inverter_serial: str | None, battery_serial: str | None, db: Session
+    ) -> SiteEnergyContract | None:
+        """Leitura do inversor solar e da bateria da planta (Sprint 4). Default: a fonte nao
+        fornece esse dado (`None`) - o polling segue so com a rede, sem quebrar."""
+        return None
+
+    async def apply_setpoints(
+        self,
+        charger_caps_kw: dict[str, Decimal] | None = None,
+        battery_setpoints_kw: dict[str, Decimal] | None = None,
+    ) -> None:
+        """Envia ao equipamento os setpoints que o backend decidiu: teto de potencia por
+        carregador (controle de demanda) e potencia da bateria (positivo = descarregar).
+        Chaves = serial do SEMS+. Default: fonte sem canal de comando - nao faz nada."""
+        return None
 
 
 class RealSemsClient(SemsClient):
@@ -38,6 +56,21 @@ class RealSemsClient(SemsClient):
             "SEMS+ real ainda nao esta disponivel - TODO quando a API existir "
             "(ver skill integracao-sems-simulador, secao 6)"
         )
+
+    async def fetch_site_energy(
+        self, inverter_serial: str | None, battery_serial: str | None, db: Session
+    ) -> SiteEnergyContract | None:
+        raise NotImplementedError("SEMS+ real ainda nao esta disponivel - leitura do inversor")
+
+    async def apply_setpoints(
+        self,
+        charger_caps_kw: dict[str, Decimal] | None = None,
+        battery_setpoints_kw: dict[str, Decimal] | None = None,
+    ) -> None:
+        # O SEMS+ e Pull-only: le, mas nao recebe comando. Limitar a potencia do HCA G2 de
+        # verdade exigiria gestao de carga local (ou OCPP), nao o SEMS+ - limitacao
+        # registrada em docs/sers-sprint4.md.
+        raise NotImplementedError("SEMS+ nao aceita setpoint - ver docs/sers-sprint4.md")
 
 
 _client: SemsClient | None = None

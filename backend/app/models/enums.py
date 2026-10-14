@@ -48,3 +48,11 @@ class PaymentMethod(str, enum.Enum):
     cartao_credito = "cartao_credito"
     cartao_debito = "cartao_debito"
     carteira_do_app = "carteira_do_app"
+
+
+class EnergyAssetKind(str, enum.Enum):
+    """Equipamentos GoodWe do lado da geracao/armazenamento (Sprint 4). `inverter` e o
+    inversor (hibrido) que reporta a geracao solar; `battery` e o banco de baterias."""
+
+    inverter = "inverter"
+    battery = "battery"

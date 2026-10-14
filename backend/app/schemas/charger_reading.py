@@ -22,3 +22,14 @@ class ChargerReadingContract(BaseModel):
     status: ChargerStatus
     total_energy_kwh: Decimal
     error_code: str | None = None
+
+
+class SiteEnergyContract(BaseModel):
+    """Leitura do lado de geracao/armazenamento da planta (Sprint 4): o que o inversor GoodWe
+    reporta de geracao solar e o que a bateria reporta de SoC. Mesmo principio do contrato
+    acima - qualquer fonte (SEMS+ real ou simulador) devolve isto, e o resto do sistema nao
+    sabe qual delas esta falando. `None` = a planta nao tem aquele equipamento."""
+
+    timestamp: datetime
+    solar_kw: Decimal = Decimal("0.000")
+    battery_soc_pct: Decimal | None = None

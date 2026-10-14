@@ -6,6 +6,7 @@ import { ChargerDetalhePage } from './pages/ChargerDetalhePage'
 import { ChatPage } from './pages/ChatPage'
 import { ConfiguracoesPage } from './pages/ConfiguracoesPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { EnergiaPage } from './pages/EnergiaPage'
 import { FilaProprietarioPage } from './pages/FilaProprietarioPage'
 import { FrotaPage } from './pages/FrotaPage'
 import { LoginPage } from './pages/LoginPage'
@@ -20,6 +21,7 @@ const queryClient = new QueryClient()
 
 const PAGE_COMPONENTS = {
   '/': DashboardPage,
+  '/energia': EnergiaPage,
   '/tarifas': TarifasPage,
   '/usuarios-planos': UsuariosPlanosPage,
   '/fila': FilaProprietarioPage,

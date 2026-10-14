@@ -3,6 +3,7 @@
 // conforme o design do Figma for chegando.
 export const routes = [
   { path: '/', title: 'Dashboard' },
+  { path: '/energia', title: 'Fluxo de energia' },
   { path: '/tarifas', title: 'Tarifas' },
   { path: '/usuarios-planos', title: 'Usuários e planos' },
   { path: '/fila', title: 'Fila' },

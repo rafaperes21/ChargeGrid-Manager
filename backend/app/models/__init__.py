@@ -1,6 +1,7 @@
 from app.models.alert import Alert
 from app.models.base import Base
 from app.models.charger import Charger, ChargerReading
+from app.models.energy import EnergyAsset, SiteEnergyReading
 from app.models.establishment import Establishment
 from app.models.invoice import Invoice
 from app.models.queue import QueueEntry
@@ -14,6 +15,8 @@ __all__ = [
     "Alert",
     "Charger",
     "ChargerReading",
+    "EnergyAsset",
+    "SiteEnergyReading",
     "Establishment",
     "Invoice",
     "QueueEntry",
