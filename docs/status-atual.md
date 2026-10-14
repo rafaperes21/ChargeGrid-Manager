@@ -24,7 +24,9 @@
   de energia; reduz o custo na Tarifa Branca (custo médio em 30 dias: R$ 241,05 contra
   R$ 253,26 do autoconsumo e R$ 267,73 sem o sistema).
 - **Banco de dev**: 7 sessões presas desde ago/set foram fechadas em 14/10/2026 (só o trecho
-  contínuo de leituras de cada uma entrou no cálculo).
+  contínuo de leituras de cada uma entrou no cálculo). A regra de tarifa "teste" (R$ 40/kWh,
+  dia todo, criada em testes) foi apagada e a base "Única" de R$ 2,00/kWh (valor do seed)
+  recriada; as sessões antigas mantêm o valor cobrado via snapshot da tarifa.
 
 ### Núcleo do produto (nunca cortado, per `tasks/README.md`)
 - **M0-M1** — fundação do repositório e modelo de dados/backend core.
@@ -115,7 +117,6 @@ Ordem de corte definida em `tasks/README.md` se o tempo apertar: modo empresaria
 | Inversor solar (20 kWp) e bateria (20 kWh, 10 kW, SoC mín. 10%, 90%) do Estacionamento Central | `backend/app/db/seed_energy.py` | Premissas de simulação, não especificação de um modelo GoodWe (`TODO(datasheet)`). Solar e bateria são simulados — não há equipamento físico. |
 | Setpoints de carregador e bateria | `SimulatedSemsClient.apply_setpoints` | Só o simulador obedece. O SEMS+ real é Pull-only; comandar o HCA G2/bateria exigiria gestão de carga local ou OCPP. |
 | Resultados quantitativos | `docs/resultados/`, `docs/img/` | Dados simulados de `scripts/cenarios.py`; demanda não reage a preço; sem SCEE, impostos e bandeira. |
-| Regra de tarifa "teste" (R$ 40/kWh, dia todo) no Estacionamento Central | banco de dev | Criada em 29/08 em testes; não vem do seed. Apagar antes de gravar vídeo ou o recibo/assistente mostra valores altos. |
 | Capacidade de bateria por modelo de veículo | `backend/app/services/vehicle_battery.py` | Valores aproximados de especificação pública do fabricante (podem variar por versão/ano/mercado) — usados só pra estimar %/tempo restante, nunca apresentados como o dado exato do carro do cliente. Estimativa também assume que a sessão começou com o veículo vazio (0%), única forma de estimar sem telemetria real da bateria. |
 
 ## Como subir e regenerar o ambiente de demo do zero
