@@ -59,7 +59,13 @@ TAGS_METADATA = [
         ),
     },
     {"name": "users", "description": "Usuários (clientes e proprietários) e bloqueio de acesso."},
-    {"name": "chatbot", "description": "Assistente técnico do proprietário (Gemini + LangChain)."},
+    {
+        "name": "chatbot",
+        "description": (
+            "Assistentes virtuais (LLM local via Ollama + LangChain): técnico do proprietário e "
+            "do cliente, com ferramentas de dado real e streaming (SSE)."
+        ),
+    },
     {
         "name": "tariffs",
         "description": "Faixas de tarifa por horário local e sugestão de precificação dinâmica.",

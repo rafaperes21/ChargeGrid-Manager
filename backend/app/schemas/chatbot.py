@@ -15,6 +15,14 @@ class ChatRequest(BaseModel):
     history: list[ChatMessageIn] = []
 
 
+class CustomerChatRequest(BaseModel):
+    """Sem `establishment_id`: o escopo do assistente do cliente e o proprio usuario do
+    token - nao ha id nenhum para o cliente (ou o modelo) escolher."""
+
+    message: str
+    history: list[ChatMessageIn] = []
+
+
 class ChatResponse(BaseModel):
     reply: str
     tools_used: list[str]
