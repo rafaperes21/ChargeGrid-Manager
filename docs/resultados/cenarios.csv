@@ -1,0 +1,16 @@
+# Dados simulados/sinteticos - nao sao medicoes de um eletroposto real.
+metrica,descricao,A,B,B_tarifa_convencional
+energia_entregue_kwh,Energia entregue aos veiculos (kWh),305.956,305.956,305.956
+pico_rede_kw,Pico de potencia na rede (kW),35.600,35.600,35.600
+pico_carga_kw,Pico de carga dos carregadores (kW),35.600,35.600,35.600
+energia_rede_kwh,Energia comprada da rede (kWh),305.956,236.192,236.192
+custo_energia_rs,"Custo de energia da rede (R$, sem impostos)",241.52,255.44,186.45
+renovavel_pct,Energia renovavel local na recarga (%),0.0,22.8,22.8
+kwh_evitados_rede,kWh evitados da rede (vs. A),0.000,69.764,69.764
+co2_rede_kg,CO2 da energia da rede (kg),14.105,10.888,10.888
+co2_evitado_kg,"CO2 evitado (kg, vs. A)",0.000,3.216,3.216
+solar_gerado_kwh,Geracao solar total (kWh),0.000,70.031,70.031
+excedente_solar_kwh,Excedente solar nao usado (kWh),0.000,0.000,0.000
+tempo_medio_recarga_min,Tempo medio de recarga (min),305.9,305.9,305.9
+sessoes_concluidas,Sessoes concluidas,11,11,11
+sessoes_nao_concluidas,Sessoes nao concluidas,0,0,0
