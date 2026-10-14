@@ -7,6 +7,9 @@ Simula o MESMO dia de demanda de recarga (mesmas chegadas, mesmos veiculos, mesm
 - B - com o sistema: controle de demanda (`services/demand_control.allocate_power`),
   despacho solar -> bateria -> rede (`services/energy_dispatch.dispatch`) e tarifa horaria
   (Tarifa Branca) da distribuidora - as MESMAS funcoes que o polling usa ao vivo.
+- B com reserva para a ponta - mesmo sistema, mas com a bateria no modo `peak_reserve`
+  (`BatteryDispatchMode`): fora da ponta ela so segura o limite contratado e guarda a energia
+  solar para a ponta da distribuidora. Opcao do proprietario, mesma funcao do polling.
 - B (tarifa convencional) - linha informativa: o sistema B pagando a tarifa do A, para separar
   o efeito de solar/bateria/controle do efeito da escolha de tarifa.
 
@@ -54,6 +57,7 @@ from pathlib import Path
 
 from app.services.demand_control import allocate_power
 from app.services.energy_dispatch import BatterySpec, dispatch, max_discharge_kw
+from app.services.tariff_posts import tariff_post
 from simulador.profiles import PROFILE_BY_KIND, sessions_for_day
 from simulador.solar import LOCAL_TZ, SolarParams, solar_power_kw
 from simulador.vehicles import VehicleProfile, pick_vehicle
@@ -69,24 +73,12 @@ TARIFF_SOURCE = "ANEEL REH 3.596/2026 (Enel SP), subgrupo B3, TUSD+TE sem impost
 TARIFF_CONVENTIONAL = D("0.78938")  # R$/kWh
 TARIFF_WHITE = {"ponta": D("1.55911"), "intermediario": D("1.03179"), "fora_ponta": D("0.68501")}
 
-PEAK = (time(17, 30), time(20, 30))
-INTERMEDIATE = ((time(16, 30), time(17, 30)), (time(20, 30), time(21, 30)))
-
 TAPER_START_SOC = D("0.80")
 TAPER_END_PCT_OF_NOMINAL = D("0.10")
 STEP = timedelta(minutes=1)
 DT_H = D(1) / D(60)
 MAX_HORIZON = timedelta(hours=36)
 SYNTHETIC_NOTICE = "Dados simulados/sinteticos - nao sao medicoes de um eletroposto real."
-
-
-def tariff_post(at: datetime) -> str:
-    local = at.astimezone(LOCAL_TZ).time()
-    if PEAK[0] <= local < PEAK[1]:
-        return "ponta"
-    if any(start <= local < end for start, end in INTERMEDIATE):
-        return "intermediario"
-    return "fora_ponta"
 
 
 @dataclass(frozen=True)
@@ -171,7 +163,9 @@ class Result:
     unfinished: int
 
 
-def simulate(cfg: Config, arrivals: list[Arrival], with_system: bool) -> Result:
+def simulate(
+    cfg: Config, arrivals: list[Arrival], with_system: bool, peak_reserve: bool = False
+) -> Result:
     start = datetime.combine(cfg.day, time.min, tzinfo=LOCAL_TZ)
     pending = {c: [a for a in arrivals if a.charger == c] for c in range(cfg.chargers)}
     active: dict[int, dict] = {}
@@ -209,6 +203,7 @@ def simulate(cfg: Config, arrivals: list[Arrival], with_system: bool) -> Result:
             soc_pct=soc,
             grid_limit_kw=cfg.grid_limit_kw if with_system else None,
             dt_h=DT_H,
+            battery_free_discharge=not peak_reserve or tariff_post(t) == "ponta",
         )
         minutes.append(
             Minute(
@@ -305,20 +300,22 @@ METRIC_LABELS = {
     "sessoes_concluidas": "Sessoes concluidas",
     "sessoes_nao_concluidas": "Sessoes nao concluidas",
 }
-SCENARIOS = ("A", "B", "B_tarifa_convencional")
+SCENARIOS = ("A", "B", "B_reserva_ponta", "B_tarifa_convencional")
 
 
 def run(cfg: Config) -> tuple[dict[str, dict[str, D]], dict[str, Result]]:
     arrivals = build_demand(cfg)
     a = simulate(cfg, arrivals, with_system=False)
     b = simulate(cfg, arrivals, with_system=True)
+    reserve = simulate(cfg, arrivals, with_system=True, peak_reserve=True)
     baseline = _kwh(a.minutes, "grid_kw")
     table = {
         "A": metrics(a, baseline, cfg, lambda post: TARIFF_CONVENTIONAL),
         "B": metrics(b, baseline, cfg, lambda post: TARIFF_WHITE[post]),
+        "B_reserva_ponta": metrics(reserve, baseline, cfg, lambda post: TARIFF_WHITE[post]),
         "B_tarifa_convencional": metrics(b, baseline, cfg, lambda post: TARIFF_CONVENTIONAL),
     }
-    return table, {"A": a, "B": b}
+    return table, {"A": a, "B": b, "B_reserva_ponta": reserve}
 
 
 SENSITIVITY_KEYS = (
@@ -328,8 +325,15 @@ SENSITIVITY_KEYS = (
     "renovavel_pct",
     "co2_evitado_kg",
 )
-# metricas em que "menor e melhor" (para contar em quantos dias B ganhou de A)
-_LOWER_IS_BETTER = {"pico_rede_kw", "energia_rede_kwh", "custo_energia_rs"}
+SYSTEM_VARIANTS = ("B", "B_reserva_ponta")
+
+
+def _beats_a(key: str, a: D, x: D) -> bool:
+    if key == "co2_evitado_kg":
+        return x > 0
+    if key == "renovavel_pct":
+        return x > a
+    return x < a  # pico, energia da rede e custo: menor e melhor
 
 
 def sensitivity(cfg: Config, seeds: range) -> dict[str, dict[str, D]]:
@@ -338,22 +342,15 @@ def sensitivity(cfg: Config, seeds: range) -> dict[str, dict[str, D]]:
     rows = [run(replace(cfg, seed=seed))[0] for seed in seeds]
     summary = {}
     for key in SENSITIVITY_KEYS:
-        a = [r["A"][key] for r in rows]
-        b = [r["B"][key] for r in rows]
-        if key == "co2_evitado_kg":
-            wins = sum(1 for value in b if value > 0)
-        elif key == "renovavel_pct":
-            wins = sum(1 for va, vb in zip(a, b, strict=True) if vb > va)
-        else:
-            wins = sum(1 for va, vb in zip(a, b, strict=True) if vb < va)
-        summary[key] = {
-            "media_A": _q(sum(a, D("0")) / len(a), "0.01"),
-            "media_B": _q(sum(b, D("0")) / len(b), "0.01"),
-            "min_B": min(b),
-            "max_B": max(b),
-            "dias_B_melhor": D(wins),
-            "dias": D(len(rows)),
-        }
+        entry = {"dias": D(len(rows))}
+        for scenario in ("A", *SYSTEM_VARIANTS):
+            values = [r[scenario][key] for r in rows]
+            entry[f"media_{scenario}"] = _q(sum(values, D("0")) / len(values), "0.01")
+        for scenario in SYSTEM_VARIANTS:
+            entry[f"dias_{scenario}_melhor"] = D(
+                sum(1 for r in rows if _beats_a(key, r["A"][key], r[scenario][key]))
+            )
+        summary[key] = entry
     return summary
 
 
@@ -376,7 +373,10 @@ def sensitivity_to_csv(summary: dict[str, dict[str, D]]) -> str:
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\n")
     writer.writerow(["# " + SYNTHETIC_NOTICE])
-    columns = ["media_A", "media_B", "min_B", "max_B", "dias_B_melhor", "dias"]
+    columns = [
+        "media_A", "media_B", "media_B_reserva_ponta",
+        "dias_B_melhor", "dias_B_reserva_ponta_melhor", "dias",
+    ]
     writer.writerow(["metrica", *columns])
     for key, values in summary.items():
         writer.writerow([key, *(str(values[c]) for c in columns)])
@@ -394,8 +394,9 @@ def to_markdown(
         f"(`--seed {cfg.seed} --date {cfg.day.isoformat()}`). Rodar de novo com os mesmos "
         "parametros reproduz esta tabela exatamente.",
         "",
-        "| Metrica | A - sem o sistema | B - com o sistema | B com tarifa convencional* |",
-        "|---|---:|---:|---:|",
+        "| Metrica | A - sem o sistema | B - com o sistema (autoconsumo) | "
+        "B - reserva para a ponta | B com tarifa convencional* |",
+        "|---|---:|---:|---:|---:|",
     ]
     for key, label in METRIC_LABELS.items():
         values = " | ".join(_br(table[s][key]) for s in SCENARIOS)
@@ -404,6 +405,10 @@ def to_markdown(
         "",
         "\\* Linha informativa: o sistema B pagando a tarifa do cenario A, para separar o efeito "
         "de solar/bateria/controle de demanda do efeito da troca de modalidade tarifaria.",
+        "",
+        "Modos da bateria: **autoconsumo** (default) descarrega sempre que o solar nao cobre a "
+        "carga; **reserva para a ponta** (opcao do proprietario) guarda a energia solar e so "
+        "descarrega na ponta da distribuidora (17h30-20h30) ou para segurar o limite contratado.",
         "",
     ]
     if summary is not None and seeds is not None:
@@ -414,14 +419,15 @@ def to_markdown(
             "Um dia so e fragil: a ordem de chegada dos carros muda bastante o resultado. Mesma "
             "comparacao A x B, mesma configuracao, um dia de demanda diferente por seed.",
             "",
-            "| Metrica | Media A | Media B | B min | B max | Dias em que B foi melhor |",
+            "| Metrica | Media A | Media B (autoconsumo) | Media B (reserva) | "
+            "Dias B melhor que A | Dias B reserva melhor que A |",
             "|---|---:|---:|---:|---:|---:|",
         ]
         for key, v in summary.items():
             lines.append(
                 f"| {METRIC_LABELS[key]} | {_br(v['media_A'])} | {_br(v['media_B'])} | "
-                f"{_br(v['min_B'])} | {_br(v['max_B'])} | "
-                f"{v['dias_B_melhor']} de {v['dias']} |"
+                f"{_br(v['media_B_reserva_ponta'])} | {v['dias_B_melhor']} de {v['dias']} | "
+                f"{v['dias_B_reserva_ponta_melhor']} de {v['dias']} |"
             )
         lines.append("")
     lines += [
@@ -475,10 +481,14 @@ def render_charts(results: dict[str, Result], table, cfg: Config, out_dir: Path)
     # 1. potencia ao longo do dia
     fig, ax = plt.subplots(figsize=(10, 4.6), dpi=150)
     a, b = results["A"].minutes, results["B"].minutes
+    r = results["B_reserva_ponta"].minutes
+    ax.axvspan(17.5, 20.5, color="#f4f2fb", zorder=0, label="ponta da distribuidora")
     ax.plot(hours(a), [float(m.grid_kw) for m in a], color=muted, lw=1.6,
             label="A - rede (= carga, sem controle)")
     ax.plot(hours(b), [float(m.grid_kw) for m in b], color=colors["grid"], lw=2,
-            label="B - rede")
+            label="B autoconsumo - rede")
+    ax.plot(hours(r), [float(m.grid_kw) for m in r], color=colors["load"], lw=2,
+            label="B reserva para a ponta - rede")
     ax.plot(hours(b), [float(m.solar_kw) for m in b], color=colors["solar"], lw=1.6, ls="--",
             label="B - geracao solar")
     ax.axhline(float(cfg.grid_limit_kw), color="#dc2626", lw=1.2, ls=":",
@@ -486,7 +496,8 @@ def render_charts(results: dict[str, Result], table, cfg: Config, out_dir: Path)
     ax.set_xlim(0, max(24, hours(a)[-1], hours(b)[-1]))
     ax.set_xticks(range(0, 25, 3), [f"{h:02d}h" for h in range(0, 25, 3)])
     ax.set_ylabel("kW")
-    ax.set_title("Potencia ao longo do dia - A sem o sistema x B com o sistema", loc="left",
+    ax.set_title("Potencia na rede ao longo do dia - A x B (autoconsumo) x B (reserva)",
+                 loc="left",
                  color=ink)
     ax.grid(axis="y", color="#eae6f2")
     ax.legend(frameon=False, fontsize=8, loc="upper left")
@@ -498,16 +509,17 @@ def render_charts(results: dict[str, Result], table, cfg: Config, out_dir: Path)
     paths.append(path)
 
     # 2. energia por fonte (barras empilhadas horizontais)
-    fig, ax = plt.subplots(figsize=(10, 3.2), dpi=150)
-    labels = ["A - sem o sistema", "B - com o sistema"]
+    fig, ax = plt.subplots(figsize=(10, 3.8), dpi=150)
+    variants = ("A", "B", "B_reserva_ponta")
+    labels = ["A - sem o sistema", "B - autoconsumo", "B - reserva para a ponta"]
     parts = [
         ("Solar -> carga", "solar_to_load_kw", colors["solar"]),
         ("Bateria -> carga", "battery_to_load_kw", colors["battery"]),
         ("Rede -> carga", "grid_kw", colors["grid"]),
     ]
-    lefts = [0.0, 0.0]
+    lefts = [0.0] * len(variants)
     for label, attr, color in parts:
-        values = [float(_kwh(results[s].minutes, attr)) for s in ("A", "B")]
+        values = [float(_kwh(results[s].minutes, attr)) for s in variants]
         bars = ax.barh(labels, values, left=lefts, color=color, label=label,
                        edgecolor="white", linewidth=2, height=0.55)
         for bar, value in zip(bars, values, strict=True):
@@ -534,18 +546,21 @@ def render_charts(results: dict[str, Result], table, cfg: Config, out_dir: Path)
         ("renovavel_pct", "Renovavel (%)"),
         ("co2_rede_kg", "CO2 da rede (kg)"),
     ]
-    fig, axes = plt.subplots(1, 4, figsize=(11, 3.4), dpi=150)
+    fig, axes = plt.subplots(1, 4, figsize=(12, 3.6), dpi=150)
     for ax, (key, title) in zip(axes, panels, strict=True):
-        values = [float(table["A"][key]), float(table["B"][key])]
-        bars = ax.bar(["A", "B"], values, color=[muted, colors["load"]], width=0.6)
+        values = [float(table[s][key]) for s in ("A", "B", "B_reserva_ponta")]
+        bars = ax.bar(["A", "B auto", "B reserva"], values,
+                      color=[muted, colors["grid"], colors["load"]], width=0.62)
         for bar, value in zip(bars, values, strict=True):
             ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(), _br(D(str(value))),
                     ha="center", va="bottom", fontsize=9, color=ink)
         ax.set_title(title, fontsize=10, color=ink)
+        ax.tick_params(axis="x", labelsize=8)
         ax.set_yticks([])
         ax.spines["left"].set_visible(False)
         ax.margins(y=0.18)
-    fig.suptitle("A sem o sistema x B com o sistema", x=0.01, ha="left", color=ink)
+    fig.suptitle("A sem o sistema x B (autoconsumo) x B (reserva para a ponta)", x=0.01,
+                 ha="left", color=ink)
     fig.text(0.01, 0.01, SYNTHETIC_NOTICE, fontsize=8, color=muted)
     path = out_dir / "cenarios_comparativo.png"
     fig.tight_layout(rect=(0, 0.05, 1, 0.95))

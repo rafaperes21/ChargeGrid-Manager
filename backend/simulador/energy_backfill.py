@@ -28,7 +28,7 @@ from app.db.session import SessionLocal
 from app.models.charger import Charger, ChargerReading
 from app.models.energy import SiteEnergyReading
 from app.models.establishment import Establishment
-from app.services.energy_assets import battery_spec, get_site_assets
+from app.services.energy_assets import battery_free_discharge, battery_spec, get_site_assets
 from app.services.energy_dispatch import dispatch
 from simulador.solar import SolarParams, solar_power_kw
 
@@ -90,7 +90,10 @@ def build_rows(
             if solar_params
             else Decimal("0")
         )
-        result = dispatch(load, solar, spec, soc, None, dt_h)
+        result = dispatch(
+            load, solar, spec, soc, None, dt_h,
+            battery_free_discharge=battery_free_discharge(battery_asset, t),
+        )
         out.append(
             {
                 "establishment_id": establishment.id,

@@ -56,3 +56,10 @@ class EnergyAssetKind(str, enum.Enum):
 
     inverter = "inverter"
     battery = "battery"
+
+
+class BatteryDispatchMode(str, enum.Enum):
+    """Politica de descarga da bateria (Sprint 4) - ver `services/energy_dispatch.py`."""
+
+    self_consumption = "self_consumption"
+    peak_reserve = "peak_reserve"

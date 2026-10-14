@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { EnergyDayChart } from '../components/energy/EnergyDayChart'
 import { EnergyFlowDiagram } from '../components/energy/EnergyFlowDiagram'
 import { Skeleton } from '../components/ui/Skeleton'
@@ -137,6 +137,8 @@ function EnergyContent({ data }) {
           }
         />
       </div>
+      {battery && <BatteryModeCard battery={battery} />}
+
       <p className="text-[11px] text-muted">
         Dados simulados: a geração solar e a bateria vêm do simulador de hardware (mesma interface que o SEMS+ real
         usaria), com premissas de dimensionamento — não são medições de um equipamento instalado.
@@ -163,5 +165,69 @@ function AssetCard({ title, asset, lines }) {
         <p className="mt-1.5 text-sm text-muted">Não cadastrado neste estabelecimento.</p>
       )}
     </div>
+  )
+}
+
+const BATTERY_MODES = [
+  {
+    value: 'self_consumption',
+    label: 'Autoconsumo',
+    help: 'A bateria cobre qualquer falta de solar, a qualquer hora. Maximiza o % renovável, mas pode chegar vazia na ponta.',
+  },
+  {
+    value: 'peak_reserve',
+    label: 'Reserva para a ponta',
+    help: 'Fora da ponta (17h30–20h30) o solar carrega a bateria primeiro e os carros usam a rede, no kWh mais barato; na ponta a bateria entrega o que guardou. Em qualquer modo ela segura o limite contratado.',
+  },
+]
+
+function BatteryModeCard({ battery }) {
+  const { establishment } = useAuth()
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: (mode) =>
+      apiClient.patch(`/establishments/${establishment.id}/energy/battery-mode`, { dispatch_mode: mode }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['energy-flow', establishment.id] }),
+  })
+  const current = mutation.isPending ? mutation.variables : battery.dispatch_mode
+
+  return (
+    <fieldset className="rounded-[22px] border border-hairline bg-surface p-5 shadow-[0_4px_20px_rgba(14,10,26,0.05)]">
+      <legend className="sr-only">Modo da bateria</legend>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Modo da bateria</p>
+      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+        {BATTERY_MODES.map((mode) => {
+          const active = current === mode.value
+          return (
+            <label
+              key={mode.value}
+              className={`flex cursor-pointer gap-3 rounded-2xl border p-4 transition-colors ${
+                active ? 'border-accent-purple bg-accent-purple/5' : 'border-hairline'
+              }`}
+            >
+              <input
+                type="radio"
+                name="battery-mode"
+                value={mode.value}
+                checked={active}
+                disabled={mutation.isPending}
+                onChange={() => mutation.mutate(mode.value)}
+                className="mt-1 accent-[var(--color-accent-purple)]"
+              />
+              <span>
+                <span className="block text-sm font-semibold text-ink">{mode.label}</span>
+                <span className="mt-1 block text-xs text-muted-2">{mode.help}</span>
+              </span>
+            </label>
+          )
+        })}
+      </div>
+      {mutation.isError && (
+        <p className="mt-2 text-xs text-status-problema">Não foi possível trocar o modo agora — tente de novo.</p>
+      )}
+      <p className="mt-2 text-[11px] text-muted">
+        Vale a partir da próxima leitura do polling. Comparação de custo dos dois modos em docs/resultados/cenarios.md.
+      </p>
+    </fieldset>
   )
 }

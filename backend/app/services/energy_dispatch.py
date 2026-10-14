@@ -17,6 +17,18 @@ Regras (e o porque de cada uma):
   (`services/demand_control.py`) ja limitou os carregadores ao disponivel antes de eles puxarem.
 - A bateria NUNCA carrega pela rede: o objetivo e deslocar energia solar, nao arbitragem.
 
+Dois modos de bateria (`BatteryDispatchMode`, escolhido por bateria no cadastro):
+- `self_consumption` (autoconsumo, default): descarga livre - cobre qualquer deficit que o
+  solar nao cobriu. Maximiza o % renovavel, mas a bateria pode chegar vazia na ponta.
+- `peak_reserve` (reserva para a ponta), espelhando o modo por horario dos inversores
+  hibridos: FORA da ponta da distribuidora o solar carrega a bateria PRIMEIRO (a carga do
+  momento vem da rede, no kWh barato) e a bateria so descarrega o que passaria do limite
+  contratado; NA ponta volta ao autoconsumo e gasta o que guardou, quando o kWh da rede e
+  mais caro. Guardar so a *sobra* de solar nao basta: num eletroposto o sol quase nunca passa
+  da carga, e a bateria chegaria vazia na ponta do mesmo jeito (medido no script de
+  cenarios). Quem decide "e ponta agora" e quem chama (`battery_free_discharge`), a partir
+  de `services/tariff_posts`.
+
 Perdas: toda a perda de ida-e-volta da bateria e aplicada na carga (`energia armazenada =
 potencia de carga x dt x eficiencia`); a descarga entrega o que sai do SoC. Simplificacao
 documentada - o total de perdas no ciclo completo fica o mesmo.
@@ -106,8 +118,13 @@ def dispatch(
     soc_pct: Decimal | None,
     grid_limit_kw: Decimal | None,
     dt_h: Decimal,
+    battery_free_discharge: bool = True,
 ) -> DispatchResult:
     """Decide de onde vem cada kW da carga dos carregadores.
+
+    `battery_free_discharge=False` (modo reserva fora da ponta): o solar carrega a bateria
+    antes de ir para a carga, e a bateria so cobre o que passaria de `grid_limit_kw` - o pico
+    acima do limite continua protegido.
 
     `battery=None` (estabelecimento sem bateria) e `solar_kw=0` (sem inversor, ou noite)
     sao casos validos. `grid_limit_kw=None` significa rede sem limite - usado so pelo
@@ -115,21 +132,38 @@ def dispatch(
     """
     load_kw = max(_ZERO, load_kw)
     solar_kw = max(_ZERO, solar_kw)
+    has_battery = battery is not None and soc_pct is not None
+    reserve = has_battery and not battery_free_discharge
 
-    solar_to_load = min(solar_kw, load_kw)
+    solar_to_battery = _ZERO
+    if reserve:
+        # fora da ponta, no modo reserva: o solar vai para a bateria antes da carga
+        solar_to_battery = min(solar_kw, max_charge_kw(battery, soc_pct, dt_h))
+    solar_to_load = min(solar_kw - solar_to_battery, load_kw)
     deficit = load_kw - solar_to_load
-    solar_left = solar_kw - solar_to_load
+    over_limit = (
+        max(_ZERO, deficit - grid_limit_kw) if grid_limit_kw is not None else _ZERO
+    )
+    if reserve and over_limit > 0 and solar_to_battery > 0:
+        # nunca guardar energia se isso empurra a rede acima do limite contratado
+        give_back = min(over_limit, solar_to_battery)
+        solar_to_battery -= give_back
+        solar_to_load += give_back
+        deficit -= give_back
+        over_limit -= give_back
+    solar_left = solar_kw - solar_to_load - solar_to_battery
 
     battery_to_load = _ZERO
-    solar_to_battery = _ZERO
     soc_after = soc_pct
-    if battery is not None and soc_pct is not None:
-        if deficit > 0:
-            battery_to_load = min(deficit, max_discharge_kw(battery, soc_pct, dt_h))
+    if has_battery:
+        if deficit > 0 and solar_to_battery == 0:
+            wanted = over_limit if reserve else deficit
+            battery_to_load = min(wanted, max_discharge_kw(battery, soc_pct, dt_h))
             deficit -= battery_to_load
         elif solar_left > 0:
-            solar_to_battery = min(solar_left, max_charge_kw(battery, soc_pct, dt_h))
-            solar_left -= solar_to_battery
+            extra = min(solar_left, max_charge_kw(battery, soc_pct, dt_h) - solar_to_battery)
+            solar_to_battery += max(_ZERO, extra)
+            solar_left = solar_kw - solar_to_load - solar_to_battery
 
         stored = battery.capacity_kwh * soc_pct / _HUNDRED
         stored += solar_to_battery * dt_h * battery.efficiency
