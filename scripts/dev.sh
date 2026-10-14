@@ -200,6 +200,8 @@ if [ "$SKIP_SETUP" = "0" ]; then
       "$BACKEND_PY" -m app.db.seed
       echo "  Rodando gerador de historico (pode levar alguns segundos)..."
       "$BACKEND_PY" -m simulador.historical_generator --seed 42
+      echo "  Gerando historico de fluxo solar/bateria (dados simulados)..."
+      "$BACKEND_PY" -m simulador.energy_backfill --days 60
     ) || exit 1
   fi
 

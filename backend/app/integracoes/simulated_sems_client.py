@@ -11,6 +11,17 @@ inicio/fim de sessao e o ChargeGrid-Manager, nao o hardware (CLAUDE.md). O carre
 "carrega de verdade" quando o motor de sessao (`app/services/sessions.py`) abriu uma - o
 simulador so precisa fazer a fisica bater com o que a sessao diz que esta acontecendo.
 Carregador sem sessao aberta fica ocioso (potencia zero, `livre`).
+
+Sprint 4 - solar, bateria e controle de demanda:
+- `fetch_site_energy` faz o papel do inversor GoodWe (geracao FV, `simulador/solar.py`) e do
+  BMS da bateria (SoC, `simulador/battery.py`).
+- `apply_setpoints` recebe os comandos do backend: teto por carregador (o simulador respeita
+  na proxima leitura - potencia = min(curva, teto)) e potencia da bateria (aplicada ao SoC
+  pelo tempo que passar ate a proxima leitura). No HCA G2 real esse canal NAO existe via
+  SEMS+ (Pull-only) - ver `RealSemsClient.apply_setpoints`.
+- Simplificacao conhecida: com teto, a curva continua indexada pelo tempo decorrido (nao pela
+  energia entregue) - o veiculo "termina" na mesma hora, so com menos kWh. Suficiente para a
+  demo do fluxo de energia; nao use para estimar tempo de recarga sob limitacao.
 """
 
 import random
@@ -20,13 +31,18 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.integracoes.sems_client import SemsClient
 from app.models.charger import Charger
+from app.models.energy import EnergyAsset, SiteEnergyReading
 from app.models.enums import ChargerStatus, ChargingSessionStatus
 from app.models.session import ChargingSession
-from app.schemas.charger_reading import ChargerReadingContract
+from app.schemas.charger_reading import ChargerReadingContract, SiteEnergyContract
+from app.services.energy_assets import battery_spec
 from app.services.energy_integration import trapezoidal_energy_kwh
+from simulador.battery import SimulatedBattery
 from simulador.curve_engine import CurveSample, generate_session_samples
+from simulador.solar import SolarParams, solar_power_kw
 from simulador.vehicles import pick_vehicle
 
 _IDLE_ENERGY_QUANT = Decimal("0.000")
@@ -45,6 +61,9 @@ class SimulatedSemsClient(SemsClient):
         self._samples_by_session: dict[uuid.UUID, list[CurveSample]] = {}
         self._last_reading_by_charger: dict[uuid.UUID, tuple[datetime, Decimal]] = {}
         self._running_total_by_charger: dict[uuid.UUID, Decimal] = {}
+        self._caps_by_serial: dict[str, Decimal] = {}
+        self._batteries: dict[str, SimulatedBattery] = {}
+        self._battery_last_ts: dict[str, datetime] = {}
 
     def _samples_for_session(
         self, session: ChargingSession, charger: Charger
@@ -121,6 +140,9 @@ class SimulatedSemsClient(SemsClient):
                 elapsed = now - _as_utc(session.started_at)
                 sample, finished = self._sample_at(samples, elapsed)
                 power_kw, status, error_code = sample.power_kw, sample.status, sample.error_code
+                cap = self._caps_by_serial.get(charger.sems_serial)
+                if cap is not None:
+                    power_kw = min(power_kw, cap)
                 if finished:
                     self._samples_by_session.pop(session.id, None)
 
@@ -137,3 +159,75 @@ class SimulatedSemsClient(SemsClient):
             )
 
         return readings
+
+    async def apply_setpoints(
+        self,
+        charger_caps_kw: dict[str, Decimal] | None = None,
+        battery_setpoints_kw: dict[str, Decimal] | None = None,
+    ) -> None:
+        if charger_caps_kw is not None:
+            self._caps_by_serial = dict(charger_caps_kw)
+        for serial, setpoint in (battery_setpoints_kw or {}).items():
+            battery = self._batteries.get(serial)
+            if battery is not None:
+                battery.setpoint_kw = setpoint
+
+    def _battery_for(self, asset: EnergyAsset, db: Session) -> SimulatedBattery | None:
+        battery = self._batteries.get(asset.sems_serial)
+        if battery is not None:
+            return battery
+        spec = battery_spec(asset)
+        if spec is None:
+            return None
+        # Retoma do ultimo SoC persistido - reiniciar o processo nao pode "recarregar" a
+        # bateria do nada (mesma preocupacao do odometro dos carregadores).
+        last = (
+            db.query(SiteEnergyReading.battery_soc_pct)
+            .filter(
+                SiteEnergyReading.establishment_id == asset.establishment_id,
+                SiteEnergyReading.battery_soc_pct.isnot(None),
+            )
+            .order_by(SiteEnergyReading.timestamp.desc())
+            .first()
+        )
+        soc = last[0] if last else Decimal(str(settings.sim_battery_initial_soc_pct))
+        battery = SimulatedBattery(spec, soc)
+        self._batteries[asset.sems_serial] = battery
+        return battery
+
+    async def fetch_site_energy(
+        self, inverter_serial: str | None, battery_serial: str | None, db: Session
+    ) -> SiteEnergyContract | None:
+        if inverter_serial is None and battery_serial is None:
+            return None
+        now = datetime.now(UTC)
+        serials = [s for s in (inverter_serial, battery_serial) if s is not None]
+        assets = {
+            asset.sems_serial: asset
+            for asset in db.query(EnergyAsset).filter(EnergyAsset.sems_serial.in_(serials))
+        }
+
+        solar_kw = Decimal("0.000")
+        inverter = assets.get(inverter_serial) if inverter_serial else None
+        if inverter is not None and inverter.rated_kw:
+            params = SolarParams(
+                peak_kwp=inverter.rated_kw,
+                sunrise_hour=settings.sim_solar_sunrise_hour,
+                sunset_hour=settings.sim_solar_sunset_hour,
+                performance_ratio=settings.sim_solar_performance_ratio,
+                cloud_min=settings.sim_solar_cloud_min,
+            )
+            solar_kw = solar_power_kw(inverter.sems_serial, now, params)
+
+        soc = None
+        asset = assets.get(battery_serial) if battery_serial else None
+        battery = self._battery_for(asset, db) if asset is not None else None
+        if battery is not None:
+            last_ts = self._battery_last_ts.get(asset.sems_serial)
+            if last_ts is not None:
+                elapsed_h = Decimal(str((now - last_ts).total_seconds() / 3600))
+                battery.advance(elapsed_h)
+            self._battery_last_ts[asset.sems_serial] = now
+            soc = battery.soc_pct
+
+        return SiteEnergyContract(timestamp=now, solar_kw=solar_kw, battery_soc_pct=soc)

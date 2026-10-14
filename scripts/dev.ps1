@@ -182,6 +182,9 @@ if (-not $SkipSetup) {
 
             Write-Host "  Rodando gerador de historico (pode levar alguns segundos)..."
             & $backendPy -m simulador.historical_generator --seed 42
+
+            Write-Host "  Gerando historico de fluxo solar/bateria (dados simulados)..."
+            & $backendPy -m simulador.energy_backfill --days 60
         } finally {
             Pop-Location
         }

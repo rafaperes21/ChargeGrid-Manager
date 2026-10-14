@@ -18,6 +18,8 @@
 | `queue_entries` | fila | prioridade do plano + ordem de chegada |
 | `invoices` | fatura corporativa | **imutável**; correção via nota de ajuste |
 | `alerts` | anomalias e avisos | severidade + leitura que disparou |
+| `energy_assets` | inversor solar / bateria GoodWe (Sprint 4) | `kind` = `inverter`/`battery`; kWp do arranjo, capacidade, potências de carga/descarga, SoC mínimo, eficiência. Valores da demo são premissas de simulação — `TODO(datasheet)` |
+| `site_energy_readings` | fluxo de energia do estabelecimento, 1 linha por tick do polling (Sprint 4) | série **crua** de potências (kW): carga, solar, solar→carga, bateria→carga, rede→carga, solar→bateria, excedente, `battery_kw` com sinal (+ descarrega), SoC, limite contratado e quanto o controle de demanda cortou. kWh por fonte é integrado por trapézio na consulta, nunca na ingestão. Único por `(establishment_id, timestamp)` |
 
 ## Regras transversais
 
@@ -31,6 +33,7 @@
 CREATE INDEX ON charger_readings (charger_id, timestamp DESC);
 CREATE INDEX ON charging_sessions (user_id, started_at DESC);
 CREATE INDEX ON charging_sessions (establishment_id, started_at DESC);
+CREATE UNIQUE INDEX ON site_energy_readings (establishment_id, timestamp);
 ```
 
 `charger_readings` cresce rápido (n_carregadores × 1440/intervalo por dia). Índice desde o

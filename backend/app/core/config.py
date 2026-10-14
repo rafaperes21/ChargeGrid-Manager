@@ -35,6 +35,15 @@ class Settings(BaseSettings):
     polling_enabled: bool = False
     polling_offline_after_failures: int = 3
 
+    # Simulador de solar + bateria (Sprint 4) - PREMISSAS DE SIMULACAO, nao medicao. O
+    # tamanho do arranjo (kWp) e da bateria vem do `EnergyAsset` de cada estabelecimento;
+    # aqui so o que e "clima" e estado inicial. Ver simulador/solar.py.
+    sim_solar_sunrise_hour: float = 6.0
+    sim_solar_sunset_hour: float = 18.0
+    sim_solar_performance_ratio: float = 0.80
+    sim_solar_cloud_min: float = 0.55
+    sim_battery_initial_soc_pct: float = 50.0
+
     # Sustentabilidade (skill tarifacao-e-sessoes §7) - em config, nao hardcoded, porque a
     # matriz eletrica brasileira muda e o numero precisa ser defensavel. Usado na tela de
     # impacto (Prioridade 5, Tarefa 5.3).
