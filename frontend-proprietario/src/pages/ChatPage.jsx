@@ -1,52 +1,78 @@
-import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 import { ApiError, apiClient } from '../lib/apiClient'
 import { useAuth } from '../lib/auth'
+
+// Assistente tecnico do proprietario - resposta transmitida token a token (SSE) pelo
+// backend (`POST /chatbot/message/stream`). O frontend nunca fala com o LLM direto; o escopo
+// (estabelecimento) e validado pelo token no backend.
+const TOOL_LABELS = {
+  get_charger_status: 'status dos carregadores',
+  get_active_sessions: 'sessões em andamento',
+  get_revenue_summary: 'receita',
+  get_current_tariff: 'tarifa vigente',
+  get_energy_flow: 'fluxo de energia',
+  get_demand_forecast: 'previsão de demanda',
+  calculate_sizing: 'dimensionamento',
+}
 
 export function ChatPage() {
   const { establishment, logout } = useAuth()
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState('')
+  const [pending, setPending] = useState(false)
+  const [activeTool, setActiveTool] = useState(null)
 
-  const mutation = useMutation({
-    mutationFn: (message) =>
-      apiClient.post('/chatbot/message', {
-        establishment_id: establishment.id,
-        message,
-        history: messages.map(({ role, content }) => ({ role, content })),
-      }),
-  })
+  function updateLastAssistant(update) {
+    setMessages((prev) => {
+      const next = [...prev]
+      next[next.length - 1] = { ...next[next.length - 1], ...update(next[next.length - 1]) }
+      return next
+    })
+  }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
     const text = draft.trim()
-    if (!text || mutation.isPending) return
+    if (!text || pending) return
 
-    setMessages((prev) => [...prev, { role: 'user', content: text }])
+    const history = messages.map(({ role, content }) => ({ role, content }))
+    setMessages((prev) => [
+      ...prev,
+      { role: 'user', content: text },
+      { role: 'assistant', content: '', toolsUsed: [], streaming: true },
+    ])
     setDraft('')
+    setPending(true)
 
-    mutation.mutate(text, {
-      onSuccess: (data) => {
-        setMessages((prev) => [
-          ...prev,
-          { role: 'assistant', content: data.reply, toolsUsed: data.tools_used },
-        ])
-      },
-      onError: (error) => {
-        if (error instanceof ApiError && error.status === 401) {
-          logout()
-          return
+    try {
+      await apiClient.stream(
+        '/chatbot/message/stream',
+        { establishment_id: establishment.id, message: text, history },
+        (evt) => {
+          if (evt.type === 'tool') {
+            setActiveTool(evt.name)
+            updateLastAssistant((m) => ({ toolsUsed: [...m.toolsUsed, evt.name] }))
+          } else if (evt.type === 'token') {
+            setActiveTool(null)
+            updateLastAssistant((m) => ({ content: m.content + evt.text }))
+          } else if (evt.type === 'done') {
+            updateLastAssistant(() => ({ content: evt.reply, toolsUsed: evt.tools_used, streaming: false }))
+          }
         }
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: 'assistant',
-            content: 'Não consegui falar com o assistente agora — tente de novo em instantes.',
-            toolsUsed: [],
-          },
-        ])
-      },
-    })
+      )
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        logout()
+        return
+      }
+      updateLastAssistant(() => ({
+        content: 'Não consegui falar com o assistente agora — tente de novo em instantes.',
+        streaming: false,
+      }))
+    } finally {
+      setPending(false)
+      setActiveTool(null)
+    }
   }
 
   if (!establishment) {
@@ -73,7 +99,7 @@ export function ChatPage() {
         <div>
           <h1 className="font-heading text-[17px] font-bold text-ink">Assistente técnico</h1>
           <p className="mt-0.5 text-xs text-muted">
-            Status dos carregadores e previsão de demanda — dados só de {establishment.name}
+            Carregadores, sessões, receita, tarifa, energia solar/bateria e dimensionamento — dados só de {establishment.name}
           </p>
         </div>
       </div>
@@ -81,17 +107,17 @@ export function ChatPage() {
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-8 py-6">
         {messages.length === 0 && (
           <p className="text-sm text-muted">
-            Pergunte, por exemplo: "como estão os carregadores?" ou "como está a demanda
-            prevista?".
+            Pergunte, por exemplo: "quanto faturei hoje?", "quanto da energia de hoje foi solar?"
+            ou "quantos GW22K cabem em 60 kW trifásico?".
           </p>
         )}
         {messages.map((message, index) => (
           <ChatBubble key={index} message={message} />
         ))}
-        {mutation.isPending && (
+        {pending && (
           <div className="flex items-center gap-2 self-start font-mono text-[11px] text-muted" aria-live="polite">
             <span className="cgm-blink inline-block h-1.5 w-1.5 rounded-full bg-brand" />
-            consultando ferramentas do estabelecimento…
+            {activeTool ? `consultou ${TOOL_LABELS[activeTool] ?? activeTool}…` : 'pensando…'}
           </div>
         )}
       </div>
@@ -113,7 +139,7 @@ export function ChatPage() {
           />
           <button
             type="submit"
-            disabled={mutation.isPending || !draft.trim()}
+            disabled={pending || !draft.trim()}
             className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full disabled:opacity-40"
             style={{ background: 'linear-gradient(135deg,#E60012,#7C3AED)' }}
             aria-label="Enviar"
@@ -140,10 +166,15 @@ function ChatBubble({ message }) {
             : 'rounded-[16px_16px_16px_4px] border border-hairline bg-surface text-ink'
         }`}
       >
-        <p className="whitespace-pre-wrap">{message.content}</p>
+        <p className="whitespace-pre-wrap">
+          {message.content}
+          {message.streaming && <span className="cgm-blink ml-0.5 inline-block h-3 w-1.5 translate-y-0.5 bg-muted-3" />}
+        </p>
       </div>
       {!isUser && message.toolsUsed?.length > 0 && (
-        <p className="font-mono text-[10px] text-muted-3">consultou: {message.toolsUsed.join(', ')}</p>
+        <p className="font-mono text-[10px] text-muted-3">
+          consultou: {message.toolsUsed.map((name) => TOOL_LABELS[name] ?? name).join(', ')}
+        </p>
       )}
     </div>
   )

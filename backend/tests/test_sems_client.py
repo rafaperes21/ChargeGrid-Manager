@@ -143,8 +143,10 @@ def test_total_energy_kwh_acumula_de_forma_monotonica(db_session, establishment)
 def test_sessao_com_curva_esgotada_some_do_cache_e_fica_ociosa(db_session, establishment):
     charger = _make_charger(db_session, establishment, status=ChargerStatus.reservado)
     user = _make_user(db_session)
-    # sessao "iniciada" ha muito tempo - qualquer curva gerada ja teria terminado
-    started_at = datetime.now(UTC) - timedelta(hours=5)
+    # sessao "iniciada" ha muito tempo - qualquer curva gerada ja teria terminado. 2 dias, nao
+    # 5 h: a curva e sorteada pelo id da sessao e, com bateria grande + OBC lento, passa de 5 h
+    # (o teste falhava de forma intermitente, ~1 em 6 execucoes)
+    started_at = datetime.now(UTC) - timedelta(days=2)
     session = _make_open_session(db_session, charger, user, started_at)
 
     client = SimulatedSemsClient()

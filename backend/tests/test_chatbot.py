@@ -8,6 +8,7 @@ from app.models.enums import ChargerModel, ChargerStatus, UserRole
 from app.models.establishment import Establishment
 from app.models.user import User
 from app.services.chatbot import _describe_chargers, _describe_demand_forecast
+from tests.chat_fakes import FakeChatModel, factory_for
 
 
 def _register_and_login(client, email: str, role: str) -> str:
@@ -193,27 +194,9 @@ def test_owner_gets_404_for_another_owners_establishment(client):
     assert response.status_code == 404
 
 
-class _FakeResponseMessage:
-    def __init__(self, content):
-        self.content = content
-        self.tool_calls = []
-
-
-class _FakeModelWithTools:
-    def invoke(self, messages):
-        return _FakeResponseMessage("resposta de teste do assistente")
-
-
-class _FakeChatOllama:
-    def __init__(self, **kwargs):
-        pass
-
-    def bind_tools(self, tools):
-        return _FakeModelWithTools()
-
-
 def test_chat_endpoint_returns_llm_reply(client, monkeypatch):
-    monkeypatch.setattr("app.services.chatbot.ChatOllama", _FakeChatOllama)
+    fake = FakeChatModel(["resposta de teste do assistente"])
+    monkeypatch.setattr("app.services.chatbot_core.default_model_factory", factory_for(fake))
 
     owner_token = _register_and_login(client, "dono-chat2@teste.com", "owner")
     establishment_id = client.post(
