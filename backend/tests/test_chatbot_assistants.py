@@ -12,7 +12,10 @@ import json
 from datetime import UTC, datetime, time, timedelta
 from decimal import Decimal
 
+import httpx
+import pytest
 from langchain_core.messages import SystemMessage
+from ollama import ResponseError
 
 from app.core.config import Settings
 from app.models.charger import Charger, ChargerReading
@@ -23,7 +26,7 @@ from app.models.tariff import TariffRule
 from app.models.user import User
 from app.schemas.chatbot import ChatMessageIn
 from app.services import chatbot, chatbot_customer, dimensionamento
-from app.services.chatbot_core import HISTORY_WINDOW, UNAVAILABLE_REPLY
+from app.services.chatbot_core import HISTORY_WINDOW
 from app.services.chatbot_safety import (
     CUSTOMER_EMERGENCY_REPLY,
     OWNER_EMERGENCY_REPLY,
@@ -284,12 +287,25 @@ def test_out_of_scope_question_uses_no_tool_and_prompt_has_refusal_rule(db_sessi
     assert owner_prompt.content != customer_prompt.content
 
 
-def test_model_failure_is_honest_not_invented(db_session):
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (httpx.ConnectError("Connection refused"), "Não consegui conectar ao Ollama"),
+        (ConnectionError("fora do ar"), "Não consegui conectar ao Ollama"),
+        (ResponseError("model 'llama3.1:8b' not found", status_code=404), "ollama pull"),
+        (RuntimeError("qualquer outra coisa"), "erro inesperado"),
+    ],
+)
+def test_model_failure_names_the_cause_and_invents_nothing(db_session, error, expected):
+    """Falha do modelo vira mensagem honesta COM a causa - antes era sempre "confira se o
+    Ollama está rodando", inclusive com o Ollama no ar e só o modelo faltando."""
     est_a, _, _ = _scenario(db_session)
     response = chatbot.run_chat(
-        db_session, est_a, "quanto faturei?", [], SETTINGS, factory_for(FailingChatModel())
+        db_session, est_a, "quanto faturei?", [], SETTINGS, factory_for(FailingChatModel(error))
     )
-    assert response.reply == UNAVAILABLE_REPLY
+    assert expected in response.reply
+    assert "Nenhuma informação foi consultada" in response.reply
+    assert response.tools_used == []
 
 
 def test_history_window_is_limited(db_session):

@@ -1,14 +1,21 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { apiClient, getToken, setToken as persistToken } from './apiClient'
+import { WrongPortalError, apiClient, getToken, setToken as persistToken } from './apiClient'
 
 // Auth minima: login por e-mail/senha contra o backend, token em localStorage. Sem registro,
 // "esqueci a senha" ou Google Sign-In — fora do escopo desta rodada.
 const AuthContext = createContext(null)
 
+// Cada portal so aceita o seu perfil. Sem isso, um token salvo pelo outro portal (o navegador
+// guarda o login por porta, e as portas ja trocaram entre execucoes do dev.sh) entrava direto
+// e o assistente respondia 403 com uma mensagem generica de "tente de novo".
+const PORTAL_ROLE = 'customer'
+const WRONG_PORTAL_MESSAGE = 'Esta conta é de proprietário — entre pelo portal do proprietário.'
+
 export function AuthProvider({ children }) {
   const [token, setTokenState] = useState(() => getToken())
   const [user, setUser] = useState(null)
   const [loadingUser, setLoadingUser] = useState(Boolean(getToken()))
+  const [notice, setNotice] = useState(null)
 
   const logout = useCallback(() => {
     persistToken(null)
@@ -19,8 +26,14 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password) => {
     const { access_token: accessToken } = await apiClient.post('/auth/login', { email, password })
     persistToken(accessToken)
+    const me = await apiClient.get('/users/me')
+    if (me.role !== PORTAL_ROLE) {
+      persistToken(null)
+      throw new WrongPortalError(WRONG_PORTAL_MESSAGE)
+    }
+    setNotice(null)
     setTokenState(accessToken)
-    setUser(await apiClient.get('/users/me'))
+    setUser(me)
   }, [])
 
   // Restaura o usuario apos um reload de pagina com token ja salvo.
@@ -33,7 +46,13 @@ export function AuthProvider({ children }) {
     apiClient
       .get('/users/me')
       .then((me) => {
-        if (!cancelled) setUser(me)
+        if (cancelled) return
+        if (me.role !== PORTAL_ROLE) {
+          setNotice(WRONG_PORTAL_MESSAGE)
+          logout()
+          return
+        }
+        setUser(me)
       })
       .catch(() => {
         if (!cancelled) logout()
@@ -48,7 +67,7 @@ export function AuthProvider({ children }) {
   }, [token])
 
   return (
-    <AuthContext.Provider value={{ token, user, loadingUser, login, logout }}>
+    <AuthContext.Provider value={{ token, user, loadingUser, login, logout, notice }}>
       {children}
     </AuthContext.Provider>
   )

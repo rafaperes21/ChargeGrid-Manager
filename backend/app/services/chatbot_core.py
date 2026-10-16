@@ -17,10 +17,12 @@ import logging
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
+import httpx
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import StructuredTool
 from langchain_ollama import ChatOllama
+from ollama import ResponseError
 
 from app.core.config import Settings
 from app.schemas.chatbot import ChatMessageIn, ChatResponse
@@ -30,10 +32,27 @@ logger = logging.getLogger(__name__)
 
 HISTORY_WINDOW = 10
 
-UNAVAILABLE_REPLY = (
-    "Não consegui falar com o assistente agora — confira se o Ollama está rodando. "
-    "Nenhuma informação foi consultada."
-)
+_NOTHING_CONSULTED = " Nenhuma informação foi consultada."
+
+
+def unavailable_reply(error: Exception, settings: Settings) -> str:
+    """Resposta honesta quando o modelo falha - nomeando a causa. Antes era sempre "confira se
+    o Ollama está rodando", inclusive quando o Ollama estava no ar e so faltava baixar o modelo."""
+    if isinstance(error, httpx.ConnectError | ConnectionError):
+        return (
+            f"Não consegui conectar ao Ollama em {settings.ollama_base_url} — confira se ele está "
+            "rodando (`ollama serve` ou o serviço do sistema)." + _NOTHING_CONSULTED
+        )
+    if isinstance(error, ResponseError) and error.status_code == 404:
+        return (
+            f"O modelo {settings.ollama_model} não está instalado no Ollama — rode "
+            f"`ollama pull {settings.ollama_model}`." + _NOTHING_CONSULTED
+        )
+    return (
+        "O assistente teve um erro inesperado ao consultar o modelo — veja o log do backend."
+        + _NOTHING_CONSULTED
+    )
+
 
 ModelFactory = Callable[[Settings], BaseChatModel]
 
@@ -183,11 +202,12 @@ def stream_agent(
                 text = event[1]
         _log(assistant, message, used, "ok")
         yield {"type": "done", "reply": text, "tools_used": used}
-    except Exception:
+    except Exception as error:
         logger.exception("Falha ao consultar o modelo do assistente %s", assistant.name)
         _log(assistant, message, used, "unavailable")
-        yield {"type": "token", "text": UNAVAILABLE_REPLY}
-        yield {"type": "done", "reply": UNAVAILABLE_REPLY, "tools_used": used}
+        reply = unavailable_reply(error, settings)
+        yield {"type": "token", "text": reply}
+        yield {"type": "done", "reply": reply, "tools_used": used}
 
 
 def run_agent(

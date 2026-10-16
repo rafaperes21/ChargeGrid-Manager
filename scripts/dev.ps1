@@ -228,9 +228,34 @@ if ($Only -contains 'frontend-cliente') {
     Start-ServiceWindow 'ChargeGrid - portal cliente' 'frontend-cliente' 'npm run dev'
 }
 
+if ($Only -contains 'backend') {
+    # Assistentes virtuais dependem do Ollama local (fora do Docker). So avisa - o resto do
+    # sistema funciona sem ele - mas avisa antes, com o comando que resolve.
+    Write-Host "`nConferindo Ollama (assistentes virtuais)..."
+    $backendEnv = Join-Path $root 'backend\.env'
+    $ollamaBase = 'http://localhost:11434'
+    $ollamaModel = 'llama3.1:8b'
+    if (Test-Path $backendEnv) {
+        foreach ($line in Get-Content $backendEnv) {
+            if ($line -match '^OLLAMA_BASE_URL=(.+)$') { $ollamaBase = $Matches[1].Trim() }
+            if ($line -match '^OLLAMA_MODEL=(.+)$') { $ollamaModel = $Matches[1].Trim() }
+        }
+    }
+    try {
+        $tags = Invoke-RestMethod -Uri "$ollamaBase/api/tags" -TimeoutSec 3
+        if ($tags.models.name -contains $ollamaModel) {
+            Write-Host "  Ollama pronto ($ollamaModel)."
+        } else {
+            Write-Host "  AVISO: Ollama no ar, mas o modelo $ollamaModel nao esta baixado. Rode: ollama pull $ollamaModel" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  AVISO: Ollama nao respondeu em $ollamaBase - os assistentes virtuais vao responder que nao conseguem conectar. Inicie o Ollama se for usar o assistente." -ForegroundColor Yellow
+    }
+}
+
 Write-Host "`nPronto. URLs:"
 if ($Only -contains 'backend') { Write-Host "  backend:      http://localhost:8000/docs" }
 if ($Only -contains 'ia') { Write-Host "  ia:           http://localhost:8001/docs" }
 if ($Only -contains 'polling') { Write-Host "  polling:      sem porta HTTP - acompanhe pela janela aberta" }
-if ($Only -contains 'frontend-proprietario') { Write-Host "  proprietario: veja a porta na janela aberta (Vite, geralmente 5173)" }
-if ($Only -contains 'frontend-cliente') { Write-Host "  cliente:      veja a porta na janela aberta (Vite, geralmente 5174)" }
+if ($Only -contains 'frontend-proprietario') { Write-Host "  proprietario: http://localhost:5174 (porta fixa)" }
+if ($Only -contains 'frontend-cliente') { Write-Host "  cliente:      http://localhost:5173 (porta fixa)" }

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { FaqAccordion } from '../components/ui/FaqAccordion'
-import { apiClient } from '../lib/apiClient'
+import { WrongPortalError, apiClient } from '../lib/apiClient'
 import { useAuth } from '../lib/auth'
 import { PUBLIC_FAQ, SUPPORT_CONTACT } from '../lib/faq'
 import { formatCurrency, formatEnergyKwh } from '../lib/format'
@@ -47,7 +47,7 @@ function ImpactHero() {
 }
 
 export function LoginPage() {
-  const { login } = useAuth()
+  const { login, notice } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -61,8 +61,8 @@ export function LoginPage() {
     try {
       await login(email, password)
       navigate('/')
-    } catch {
-      setError('E-mail ou senha inválidos.')
+    } catch (err) {
+      setError(err instanceof WrongPortalError ? err.message : 'E-mail ou senha inválidos.')
     } finally {
       setSubmitting(false)
     }
@@ -111,7 +111,7 @@ export function LoginPage() {
               className="rounded-xl border border-hairline px-3.5 py-2.5 text-sm text-ink focus:border-brand focus:outline-none"
             />
           </label>
-          {error && <p className="text-sm text-status-problema">{error}</p>}
+          {(error || notice) && <p className="text-sm text-status-problema">{error || notice}</p>}
           <Button type="submit" disabled={submitting} className="mt-2">
             {submitting ? 'Entrando…' : 'Entrar'}
           </Button>

@@ -56,11 +56,14 @@ class FakeChatModel:
 
 
 class FailingChatModel:
+    def __init__(self, error: Exception | None = None):
+        self.error = error or ConnectionError("ollama fora do ar")
+
     def bind_tools(self, tools):
         return self
 
     def stream(self, messages):
-        raise ConnectionError("ollama fora do ar")
+        raise self.error
         yield  # pragma: no cover
 
 
