@@ -9,6 +9,10 @@ export class ApiError extends Error {
   }
 }
 
+// Conta valida, mas do outro portal (ex.: dono tentando entrar no portal do cliente). O token de
+// um perfil nao serve no portal do outro: o backend responde 403 em tudo que e do perfil certo.
+export class WrongPortalError extends Error {}
+
 export function getToken() {
   return localStorage.getItem(TOKEN_STORAGE_KEY)
 }
@@ -78,6 +82,28 @@ async function stream(path, body, onEvent) {
     }
   }
   return last
+}
+
+/**
+ * Mensagem do assistente quando a conversa nem chega a ter resposta: diz a causa real em vez de
+ * um "tente de novo" generico (que escondia, por exemplo, um 403 de conta do perfil errado).
+ * Falha do proprio modelo (Ollama parado, modelo nao baixado) chega como resposta normal do
+ * backend, ja com a causa - nao passa por aqui.
+ */
+export function describeChatError(error) {
+  if (error instanceof ApiError) {
+    if (error.status === 403) {
+      return 'Esta conta não tem acesso a este assistente — saia e entre com a conta certa deste portal.'
+    }
+    if (error.status >= 500) {
+      return `O servidor teve um erro ao processar a pergunta (HTTP ${error.status}) — veja o log do backend.`
+    }
+    return `O servidor recusou a pergunta (HTTP ${error.status}).`
+  }
+  if (error instanceof TypeError) {
+    return 'Não consegui conectar ao servidor do ChargeGrid — confira se o backend está rodando.'
+  }
+  return 'Não consegui falar com o assistente agora — tente de novo em instantes.'
 }
 
 export const apiClient = {

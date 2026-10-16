@@ -45,7 +45,8 @@ completa, por fase e com pontos de sincronização, em
 
 Pré-requisitos: Docker (Postgres), Python 3.11, Node 20. Para os assistentes virtuais:
 [Ollama](https://ollama.com) com o modelo `llama3.1:8b` (`ollama pull llama3.1:8b`) — sem ele
-o resto do sistema funciona e o assistente responde que está indisponível.
+o resto do sistema funciona e o assistente responde dizendo a causa (Ollama parado ou modelo
+não baixado). O `dev.sh`/`dev.ps1` confere isso na subida e avisa com o comando que resolve.
 
 ### Caminho rápido — um comando só
 
@@ -160,9 +161,11 @@ cd frontend-proprietario && npm install && npm run dev
 cd frontend-cliente && npm install && npm run dev
 ```
 
-Cada um abre na porta que o Vite imprimir (5173 para o primeiro que subir, 5174 para o
-segundo). Logins de demonstração criados pelo seed, só para ambiente local: proprietário
-`dono@chargegrid.demo` e cliente `cliente@chargegrid.demo`, senha `demo1234`.
+Portas fixas: **cliente em `http://localhost:5173`** e **proprietário em `http://localhost:5174`**
+(se a porta estiver ocupada, o Vite falha com erro em vez de trocar de porta). Logins de
+demonstração criados pelo seed, só para ambiente local: proprietário `dono@chargegrid.demo` e
+cliente `cliente@chargegrid.demo`, senha `demo1234`. Cada portal só aceita o seu perfil — a conta
+do dono no portal do cliente (ou o contrário) é recusada no login com aviso.
 
 ### 6. Resultados quantitativos (dados simulados)
 

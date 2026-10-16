@@ -182,6 +182,32 @@ else
   echo "[2/4] Postgres nao necessario para os servicos escolhidos - pulando."
 fi
 
+# Assistentes virtuais dependem do Ollama local (fora do Docker). So avisa - o resto do sistema
+# funciona sem ele - mas avisa ANTES, com o comando que resolve, em vez de o erro aparecer so
+# na tela do assistente.
+check_ollama() {
+  local env_file="$ROOT/backend/.env" base model
+  base=$(grep -E '^OLLAMA_BASE_URL=' "$env_file" 2>/dev/null | tail -1 | cut -d= -f2-)
+  model=$(grep -E '^OLLAMA_MODEL=' "$env_file" 2>/dev/null | tail -1 | cut -d= -f2-)
+  base=${base:-http://localhost:11434}
+  model=${model:-llama3.1:8b}
+  local tags
+  if ! tags=$(curl -s -m 3 "$base/api/tags" 2>/dev/null) || [ -z "$tags" ]; then
+    echo "  AVISO: Ollama nao respondeu em $base - os assistentes virtuais vao responder que"
+    echo "         nao conseguem conectar. Inicie o Ollama (ollama serve) se for usar o assistente."
+  elif ! printf '%s' "$tags" | grep -q "\"name\":\"$model\""; then
+    echo "  AVISO: Ollama no ar, mas o modelo $model nao esta baixado. Rode: ollama pull $model"
+  else
+    echo "  Ollama pronto ($model)."
+  fi
+}
+
+if contains backend "${ONLY[@]}"; then
+  echo
+  echo "Conferindo Ollama (assistentes virtuais)..."
+  check_ollama
+fi
+
 if [ "$SKIP_SETUP" = "0" ]; then
   echo
   echo "[3/4] Setup dos servicos..."
@@ -255,10 +281,10 @@ if contains polling "${ONLY[@]}"; then
   echo "  polling:      sem porta HTTP - acompanhe pelo log [polling] acima"
 fi
 if contains frontend-proprietario "${ONLY[@]}"; then
-  echo "  proprietario: veja a porta no log [proprietario] acima (Vite, geralmente 5173)"
+  echo "  proprietario: http://localhost:5174 (porta fixa)"
 fi
 if contains frontend-cliente "${ONLY[@]}"; then
-  echo "  cliente:      veja a porta no log [cliente] acima (Vite, geralmente 5174)"
+  echo "  cliente:      http://localhost:5173 (porta fixa)"
 fi
 
 wait

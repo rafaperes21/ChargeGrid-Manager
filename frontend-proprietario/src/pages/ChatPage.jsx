@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ApiError, apiClient } from '../lib/apiClient'
+import { ApiError, apiClient, describeChatError } from '../lib/apiClient'
 import { useAuth } from '../lib/auth'
 
 // Assistente tecnico do proprietario - resposta transmitida token a token (SSE) pelo
@@ -65,10 +65,7 @@ export function ChatPage() {
         logout()
         return
       }
-      updateLastAssistant(() => ({
-        content: 'Não consegui falar com o assistente agora — tente de novo em instantes.',
-        streaming: false,
-      }))
+      updateLastAssistant(() => ({ content: describeChatError(error), streaming: false }))
     } finally {
       setPending(false)
       setActiveTool(null)

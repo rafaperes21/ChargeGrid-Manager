@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { FaqAccordion } from '../components/ui/FaqAccordion'
-import { ApiError, apiClient } from '../lib/apiClient'
+import { ApiError, apiClient, describeChatError } from '../lib/apiClient'
 import { useAuth } from '../lib/auth'
 import { HELP_FAQ, SUPPORT_CONTACT } from '../lib/faq'
 
@@ -49,10 +49,7 @@ export function AjudaPage() {
         logout()
         return
       }
-      updateLast(() => ({
-        content: 'Não consegui falar com o assistente agora. Tente de novo em instantes.',
-        streaming: false,
-      }))
+      updateLast(() => ({ content: describeChatError(error), streaming: false }))
     } finally {
       setPending(false)
     }
