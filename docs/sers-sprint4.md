@@ -19,7 +19,7 @@
 
 ## 2. Vídeo
 
-**▶ [link do vídeo — a inserir]** *(vídeo não listado)*
+[**▶ Assistir no YouTube**](https://youtu.be/3yOCLbgklEQ) *(vídeo não listado, até 5 minutos)*
 
 ---
 
